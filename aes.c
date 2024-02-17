@@ -114,13 +114,13 @@ void key_expansion(uint8_t* expanded_key, uint8_t* key, aes_key_size size, size_
     }
 }
 
-void s_bytes(uint8_t* state) {
+void sub_bytes(uint8_t* state) {
     for (size_t i = 0; i < 16; i++) {
         state[i] = get_s_box_value(state[i]);
     }
 }
 
-void shift_row(uint8_t* state) {
+void shift_rows(uint8_t* state) {
     uint8_t temp[4] = { 0 };
     for (size_t i = 1; i < 4; i++) {
         memcpy(temp, (state + i * 5), 4 - i);
@@ -172,4 +172,74 @@ void mix_columns(uint8_t* state) {
             state[j * 4 + i] = column[j];
         }
     }
+}
+
+void round(uint8_t* state, uint8_t* round_key) {
+    sub_bytes(state);
+    shift_rows(state);
+    mix_columns(state);
+    add_round_key(state, round_key);
+}
+
+void generate_round_key(uint8_t* expanded_key, uint8_t* round_key) {
+    for (size_t i = 0; i < 4; i++) {
+        for (size_t j = 0; j < 4; j++) {
+            round_key[i + 4 * j] = expanded_key[i * 4 + j];
+        }
+    }
+}
+
+void aes_main(uint8_t* state, uint8_t* expanded_key, size_t nr_rounds) {
+    uint8_t round_key[16];
+    generate_round_key(expanded_key, round_key);
+    add_round_key(state, round_key);
+    for (size_t i = 1; i < nr_rounds; i++) {
+        generate_round_key(expanded_key + 16 * i, round_key);
+        round(state, round_key);
+    }
+    generate_round_key(expanded_key + 16 * nr_rounds, round_key);
+    sub_bytes(state);
+    shift_rows(state);
+    add_round_key(state, round_key);
+}
+
+uint8_t aes_encrypt(uint8_t* plaintext, uint8_t* ciphertext, uint8_t* key, aes_key_size size) {
+    size_t expanded_key_size = 0;
+    size_t nr_rounds = 0;
+    uint8_t* expanded_key = NULL;
+    uint8_t block[16] = { 0 };
+    switch (size) {
+        case SIZE_128:
+            nr_rounds = 10;
+            break;
+        case SIZE_192:
+            nr_rounds = 12;
+            break;
+        case SIZE_256:
+            nr_rounds = 14;
+            break;
+        default:
+            // Handle error here
+            return -1;
+            break;
+    }
+    expanded_key_size = 16 * (nr_rounds + 1);
+    expanded_key = malloc(expanded_key_size * sizeof *expanded_key);
+    if (expanded_key == NULL) {
+        // Handle error here
+    }
+    // DRY below
+    for (size_t i = 0; i < 4; i++) {
+        for (size_t j = 0; j < 4; j++) {
+            block[i + 4 * j] = plaintext[i * 4 + j];
+        }
+    }
+    key_expansion(expanded_key, key, size, expanded_key_size);
+    aes_main(block, expanded_key, nr_rounds);
+    for (size_t i = 0; i < 4; i++) {
+        for (size_t j = 0; j < 4; j++) {
+            ciphertext[i * 4 + j] = block[i + 4 * j];
+        }
+    }
+    return 0;
 }
