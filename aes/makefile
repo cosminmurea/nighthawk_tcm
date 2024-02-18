@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -g -Wall
 SOURCE = driver.c
 DEPS = aes.c
-TARGET = aes
+TARGET = aes.out
 
 run: $(TARGET)
 	./$(TARGET)

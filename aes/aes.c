@@ -57,6 +57,14 @@ uint8_t rcon[255] = {
     0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb
 };
 
+void row_col_map(uint8_t* dest, uint8_t* src) {
+    for (size_t i = 0; i < 4; i++) {
+        for (size_t j = 0; j < 4; j++) {
+            dest[i + 4 * j] = src[i * 4 + j];
+        }
+    }
+}
+
 uint8_t get_s_box_value(uint8_t index) {
     return s_box[index];
 }
@@ -69,7 +77,7 @@ uint8_t get_rcon_value(uint8_t iteration) {
     return rcon[iteration];
 }
 
-void rotate(uint8_t* word) {
+void rotate_word(uint8_t* word) {
     uint8_t byte;
     byte = word[0];
     for (size_t i = 0; i < 3; i++) {
@@ -79,7 +87,7 @@ void rotate(uint8_t* word) {
 }
 
 void key_schedule(uint8_t* word, size_t iteration) {
-    rotate(word);
+    rotate_word(word);
     for (size_t i = 0; i < 4; i++) {
         word[i] = get_s_box_value(word[i]);
     }
@@ -114,18 +122,28 @@ void key_expansion(uint8_t* expanded_key, uint8_t* key, aes_key_size size, size_
     }
 }
 
-void sub_bytes(uint8_t* state) {
+void sub_bytes(uint8_t* state, bool decrypt) {
     for (size_t i = 0; i < 16; i++) {
-        state[i] = get_s_box_value(state[i]);
+        if (decrypt) {
+            state[i] = get_s_box_inverse(state[i]);
+        } else {
+            state[i] = get_s_box_value(state[i]);
+        }
     }
 }
 
-void shift_rows(uint8_t* state) {
+void shift_rows(uint8_t* state, bool decrypt) {
     uint8_t temp[4] = { 0 };
     for (size_t i = 1; i < 4; i++) {
-        memcpy(temp, (state + i * 5), 4 - i);
-        memcpy((temp + 4 - i), (state + i * 4), i);
-        memcpy(state + i * 4, temp, 4);
+        if (decrypt) {
+            memcpy(temp + i, state + i * 4, 4 - i);
+            memcpy(temp, state + 4 + (i * 3), i);
+            memcpy(state + i * 4, temp, 4);
+        } else {
+            memcpy(temp, (state + i * 5), 4 - i);
+            memcpy((temp + 4 - i), (state + i * 4), i);
+            memcpy(state + i * 4, temp, 4);
+        }
     }
 }
 
@@ -135,7 +153,7 @@ void add_round_key(uint8_t* state, uint8_t* round_key) {
     }
 }
 
-uint8_t g_multiply(uint8_t poly_A, uint8_t poly_B) {
+uint8_t g_mult(uint8_t poly_A, uint8_t poly_B) {
     uint8_t product = 0;
     uint8_t high_bit = 0;
     for (size_t i = 0; i < 8; i++) {
@@ -152,58 +170,81 @@ uint8_t g_multiply(uint8_t poly_A, uint8_t poly_B) {
     return product;
 }
 
-void mix_column(uint8_t* column) {
+void mix_column(uint8_t* column, bool decrypt) {
     uint8_t temp[4];
     memcpy(temp, column, 4);
-    column[0] = g_multiply(temp[0], 2) ^ g_multiply(temp[3], 1) ^ g_multiply(temp[2], 1) ^ g_multiply(temp[1], 3);
-    column[1] = g_multiply(temp[1], 2) ^ g_multiply(temp[0], 1) ^ g_multiply(temp[3], 1) ^ g_multiply(temp[2], 3);
-    column[2] = g_multiply(temp[2], 2) ^ g_multiply(temp[1], 1) ^ g_multiply(temp[0], 1) ^ g_multiply(temp[3], 3);
-    column[3] = g_multiply(temp[3], 2) ^ g_multiply(temp[2], 1) ^ g_multiply(temp[1], 1) ^ g_multiply(temp[0], 3);
+    if (decrypt) {
+        column[0] = g_mult(temp[0], 14) ^ g_mult(temp[3], 9) ^ g_mult(temp[2], 13) ^ g_mult(temp[1], 11);
+        column[1] = g_mult(temp[1], 14) ^ g_mult(temp[0], 9) ^ g_mult(temp[3], 13) ^ g_mult(temp[2], 11);
+        column[2] = g_mult(temp[2], 14) ^ g_mult(temp[1], 9) ^ g_mult(temp[0], 13) ^ g_mult(temp[3], 11);
+        column[3] = g_mult(temp[3], 14) ^ g_mult(temp[2], 9) ^ g_mult(temp[1], 13) ^ g_mult(temp[0], 11);
+    } else {
+        column[0] = g_mult(temp[0], 2) ^ g_mult(temp[3], 1) ^ g_mult(temp[2], 1) ^ g_mult(temp[1], 3);
+        column[1] = g_mult(temp[1], 2) ^ g_mult(temp[0], 1) ^ g_mult(temp[3], 1) ^ g_mult(temp[2], 3);
+        column[2] = g_mult(temp[2], 2) ^ g_mult(temp[1], 1) ^ g_mult(temp[0], 1) ^ g_mult(temp[3], 3);
+        column[3] = g_mult(temp[3], 2) ^ g_mult(temp[2], 1) ^ g_mult(temp[1], 1) ^ g_mult(temp[0], 3);
+    }
 }
 
-void mix_columns(uint8_t* state) {
+void mix_columns(uint8_t* state, bool decrypt) {
     uint8_t column[4];
     for (size_t i = 0; i < 4; i++) {
         for (size_t j = 0; j < 4; j++) {
             column[j] = state[j * 4 + i];
         }
-        mix_column(column);
+        mix_column(column, decrypt);
         for (size_t j = 0; j < 4; j++) {
             state[j * 4 + i] = column[j];
         }
     }
 }
 
-void aes_round(uint8_t* state, uint8_t* round_key) {
-    sub_bytes(state);
-    shift_rows(state);
-    mix_columns(state);
-    add_round_key(state, round_key);
+void aes_round(uint8_t* state, uint8_t* round_key, bool decrypt) {
+    if (decrypt) {
+        shift_rows(state, true);
+        sub_bytes(state, true);
+        add_round_key(state, round_key);
+        mix_columns(state, true);
+    } else {
+        sub_bytes(state, false);
+        shift_rows(state, false);
+        mix_columns(state, false);
+        add_round_key(state, round_key);
+    }
 }
 
 void generate_round_key(uint8_t* expanded_key, uint8_t* round_key) {
-    for (size_t i = 0; i < 4; i++) {
-        for (size_t j = 0; j < 4; j++) {
-            round_key[i + 4 * j] = expanded_key[i * 4 + j];
-        }
-    }
+    row_col_map(round_key, expanded_key);
 }
 
-void aes_main(uint8_t* state, uint8_t* expanded_key, size_t nr_rounds) {
+void aes_main(uint8_t* state, uint8_t* expanded_key, size_t nr_rounds, bool decrypt) {
     uint8_t round_key[16] = { 0 };
-    generate_round_key(expanded_key, round_key);
-    add_round_key(state, round_key);
-    for (size_t i = 1; i < nr_rounds; i++) {
-        generate_round_key(expanded_key + 16 * i, round_key);
-        aes_round(state, round_key);
+    if (decrypt) {
+        generate_round_key(expanded_key + 16 * nr_rounds, round_key);
+        add_round_key(state, round_key);
+        for (size_t i = nr_rounds - 1; i > 0; i--) {
+            generate_round_key(expanded_key + 16 * i, round_key);
+            aes_round(state, round_key, true);
+        }
+        generate_round_key(expanded_key, round_key);
+        shift_rows(state, true);
+        sub_bytes(state, true);
+        add_round_key(state, round_key);
+    } else {
+        generate_round_key(expanded_key, round_key);
+        add_round_key(state, round_key);
+        for (size_t i = 1; i < nr_rounds; i++) {
+            generate_round_key(expanded_key + 16 * i, round_key);
+            aes_round(state, round_key, false);
+        }
+        generate_round_key(expanded_key + 16 * nr_rounds, round_key);
+        sub_bytes(state, false);
+        shift_rows(state, false);
+        add_round_key(state, round_key);
     }
-    generate_round_key(expanded_key + 16 * nr_rounds, round_key);
-    sub_bytes(state);
-    shift_rows(state);
-    add_round_key(state, round_key);
 }
 
-uint8_t aes_encrypt(uint8_t* plaintext, uint8_t* ciphertext, uint8_t* key, aes_key_size size) {
+uint8_t aes(uint8_t* plaintext, uint8_t* ciphertext, uint8_t* key, aes_key_size size, bool decrypt) {
     size_t expanded_key_size = 0;
     size_t nr_rounds = 0;
     uint8_t* expanded_key = NULL;
@@ -226,119 +267,11 @@ uint8_t aes_encrypt(uint8_t* plaintext, uint8_t* ciphertext, uint8_t* key, aes_k
     expanded_key_size = 16 * (nr_rounds + 1);
     expanded_key = malloc(expanded_key_size * sizeof *expanded_key);
     if (expanded_key == NULL) {
-        // Handle error here
+        // Handle error here - USE SAFE_MALLOC
     }
-    // DRY below
-    for (size_t i = 0; i < 4; i++) {
-        for (size_t j = 0; j < 4; j++) {
-            block[i + 4 * j] = plaintext[i * 4 + j];
-        }
-    }
+    row_col_map(block, plaintext);
     key_expansion(expanded_key, key, size, expanded_key_size);
-    aes_main(block, expanded_key, nr_rounds);
-    for (size_t i = 0; i < 4; i++) {
-        for (size_t j = 0; j < 4; j++) {
-            ciphertext[i * 4 + j] = block[i + 4 * j];
-        }
-    }
-    return 0;
-}
-
-void inv_sub_bytes(uint8_t* state) {
-    for (size_t i = 0; i < 16; i++) {
-        state[i] = get_s_box_inverse(state[i]);
-    }
-}
-
-void inv_shift_rows(uint8_t* state) {
-    uint8_t temp[4] = { 0 };
-    for (size_t i = 1; i < 4; i++) {
-        memcpy(temp + i, state + i * 4, 4 - i);
-        memcpy(temp, state + 4 + (i * 3), i);
-        memcpy(state + i * 4, temp, 4);
-    }
-}
-
-void inv_mix_column(uint8_t* column) {
-    uint8_t temp[4] = { 0 };
-    memcpy(temp, column, 4);
-    column[0] = g_multiply(temp[0], 14) ^ g_multiply(temp[3], 9) ^ g_multiply(temp[2], 13) ^ g_multiply(temp[1], 11);
-    column[1] = g_multiply(temp[1], 14) ^ g_multiply(temp[0], 9) ^ g_multiply(temp[3], 13) ^ g_multiply(temp[2], 11);
-    column[2] = g_multiply(temp[2], 14) ^ g_multiply(temp[1], 9) ^ g_multiply(temp[0], 13) ^ g_multiply(temp[3], 11);
-    column[3] = g_multiply(temp[3], 14) ^ g_multiply(temp[2], 9) ^ g_multiply(temp[1], 13) ^ g_multiply(temp[0], 11);
-}
-
-void inv_mix_columns(uint8_t* state) {
-    uint8_t column[4];
-    for (size_t i = 0; i < 4; i++) {
-        for (size_t j = 0; j < 4; j++) {
-            column[j] = state[j * 4 + i];
-        }
-        inv_mix_column(column);
-        for (size_t j = 0; j < 4; j++) {
-            state[j * 4 + i] = column[j];
-        }
-    }
-}
-
-void inv_aes_round(uint8_t* state, uint8_t* round_key) {
-    inv_shift_rows(state);
-    inv_sub_bytes(state);
-    add_round_key(state, round_key);
-    inv_mix_columns(state);
-}
-
-void inv_aes_main(uint8_t* state, uint8_t* expanded_key, size_t nr_rounds) {
-    uint8_t round_key[16] = { 0 };
-    generate_round_key(expanded_key + 16 * nr_rounds, round_key);
-    add_round_key(state, round_key);
-    for (size_t i = nr_rounds - 1; i > 0; i--) {
-        generate_round_key(expanded_key + 16 * i, round_key);
-        inv_aes_round(state, round_key);
-    }
-    generate_round_key(expanded_key, round_key);
-    inv_shift_rows(state);
-    inv_sub_bytes(state);
-    add_round_key(state, round_key);
-}
-
-uint8_t aes_decrypt(uint8_t* ciphertext, uint8_t* plaintext, uint8_t* key, aes_key_size size) {
-    size_t expanded_key_size = 0;
-    size_t nr_rounds = 0;
-    uint8_t* expanded_key = NULL;
-    uint8_t block[16] = { 0 };
-    switch (size) {
-        case SIZE_128:
-            nr_rounds = 10;
-            break;
-        case SIZE_192:
-            nr_rounds = 12;
-            break;
-        case SIZE_256:
-            nr_rounds = 14;
-            break;
-        default:
-            // Handle error here
-            return -1;
-            break;
-    }
-    expanded_key_size = 16 * (nr_rounds + 1);
-    expanded_key = malloc(expanded_key_size * sizeof *expanded_key);
-    if (expanded_key == NULL) {
-        // Handle error here
-    }
-    // DRY below
-    for (size_t i = 0; i < 4; i++) {
-        for (size_t j = 0; j < 4; j++) {
-            block[i + 4 * j] = ciphertext[i * 4 + j];
-        }
-    }
-    key_expansion(expanded_key, key, size, expanded_key_size);
-    inv_aes_main(block, expanded_key, nr_rounds);
-    for (size_t i = 0; i < 4; i++) {
-        for (size_t j = 0; j < 4; j++) {
-            plaintext[i * 4 + j] = block[i + 4 * j];
-        }
-    }
+    aes_main(block, expanded_key, nr_rounds, decrypt);
+    row_col_map(ciphertext, block);
     return 0;
 }
