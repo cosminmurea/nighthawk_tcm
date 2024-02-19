@@ -4,14 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "../utils/general.h"
 
 typedef enum key_size {
     SIZE_128 = 16,
     SIZE_192 = 24,
     SIZE_256 = 32
 } aes_key_size;
-
-void print_hex(uint8_t* byte_array, size_t length);
 
 uint8_t get_s_box_value(uint8_t index);
 uint8_t get_s_box_inverse(uint8_t index);

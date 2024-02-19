@@ -1,12 +1,5 @@
-#include <stdio.h>
 #include "aes.h"
-
-void print_hex(uint8_t* array, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        printf("%2.2x", array[i]);
-    }
-    printf("\n");
-}
+#include "../utils/pkcs7.h"
 
 int main() {
     uint8_t key[16] = {
@@ -17,10 +10,15 @@ int main() {
     };
     uint8_t output[16], output2[16];
     aes_key_size size = SIZE_128;
-    aes(input, output, key, size, false);
-    print_hex(output, 16);
-    aes(output, output2, key, size, true);
-    print_hex(output2, 16);
-    print_hex(input, 16);
+    // aes(input, output, key, size, false);
+    // print_bytes_hex(output, 16);
+    // aes(output, output2, key, size, true);
+    // print_bytes_hex(output2, 16);
+    pkcs7_context* pkcs7_context = pkcs7_context_init(input, 16, 16);
+    pkcs7_pad(pkcs7_context);
+    print_bytes_hex(pkcs7_context->padded_data, pkcs7_context->padded_data_length);
+    pkcs7_context = pkcs7_unpad(pkcs7_context->padded_data, pkcs7_context->padded_data_length, pkcs7_context->block_size);
+    print_bytes_hex(pkcs7_context->data, pkcs7_context->data_length);
+    pkcs7_context_destroy(pkcs7_context);
     return 0;
 }

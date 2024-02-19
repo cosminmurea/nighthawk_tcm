@@ -260,18 +260,15 @@ uint8_t aes(uint8_t* plaintext, uint8_t* ciphertext, uint8_t* key, aes_key_size 
             nr_rounds = 14;
             break;
         default:
-            // Handle error here
             return -1;
             break;
     }
     expanded_key_size = 16 * (nr_rounds + 1);
-    expanded_key = malloc(expanded_key_size * sizeof *expanded_key);
-    if (expanded_key == NULL) {
-        // Handle error here - USE SAFE_MALLOC
-    }
+    expanded_key = safe_malloc(expanded_key_size * sizeof *expanded_key);
     row_col_map(block, plaintext);
     key_expansion(expanded_key, key, size, expanded_key_size);
     aes_main(block, expanded_key, nr_rounds, decrypt);
     row_col_map(ciphertext, block);
+    free(expanded_key);
     return 0;
 }
