@@ -14,11 +14,10 @@ int main() {
     // print_bytes_hex(output, 16);
     // aes(output, output2, key, size, true);
     // print_bytes_hex(output2, 16);
-    pkcs7_context* pkcs7_context = pkcs7_context_init(input, 16, 16);
-    pkcs7_pad(pkcs7_context);
-    print_bytes_hex(pkcs7_context->padded_data, pkcs7_context->padded_data_length);
-    pkcs7_context = pkcs7_unpad(pkcs7_context->padded_data, pkcs7_context->padded_data_length, pkcs7_context->block_size);
-    print_bytes_hex(pkcs7_context->data, pkcs7_context->data_length);
-    pkcs7_context_destroy(pkcs7_context);
+    print_bytes_hex(input, 16);
+    pkcs7_pad_ctx* pad_ctx = pkcs7_pad(input, 16, 32);
+    print_bytes_hex(pkcs7_get_padded(pad_ctx), pkcs7_get_padded_length(pad_ctx));
+    pkcs7_unpad_ctx* unpad_ctx = pkcs7_unpad(pad_ctx, 32);
+    print_bytes_hex(pkcs7_get_unpadded(unpad_ctx), pkcs7_get_unpadded_length(unpad_ctx));
     return 0;
 }

@@ -1,43 +1,98 @@
 #include "pkcs7.h"
 
-pkcs7_context* pkcs7_context_init(const uint8_t* data, size_t data_length, uint8_t block_size) {
+struct pkcs7_padding_context {
+    uint8_t* padded_data;
+    size_t padded_data_length;
+    uint8_t padding_byte;
+};
+
+struct pkcs7_unpadding_context {
+    uint8_t* data;
+    size_t data_length;
+    uint8_t padding_byte;
+};
+
+uint8_t* pkcs7_get_padded(pkcs7_pad_ctx* pad_ctx) {
+    return pad_ctx->padded_data;
+}
+
+size_t pkcs7_get_padded_length(pkcs7_pad_ctx* pad_ctx) {
+    return pad_ctx->padded_data_length;
+}
+
+uint8_t* pkcs7_get_unpadded(pkcs7_unpad_ctx* unpad_ctx) {
+    return unpad_ctx->data;
+}
+
+size_t pkcs7_get_unpadded_length(pkcs7_unpad_ctx* unpad_ctx) {
+    return unpad_ctx->data_length;
+}
+
+pkcs7_pad_ctx* pkcs7_pad(const uint8_t* data, size_t data_length, uint8_t block_size) {
+    // Only 16 and 32 byte blocks are supported;
     if (block_size != 16 && block_size != 32) {
         // INVALID BLOCK SIZE
         return NULL;
     }
-
-    pkcs7_context* context = safe_malloc(sizeof *context);
-
-    context->block_size = block_size;
-    context->padding_byte = block_size - (data_length % block_size);
-    context->padded_data_length = data_length + context->padding_byte;
-
-    context->data_length = data_length;
-    context->data = safe_malloc(data_length * sizeof *(context->data));
-    memcpy(context->data, data, data_length);
-
-    context->padded_data = safe_malloc(context->padded_data_length * sizeof *(context->padded_data));
-    memset(context->padded_data, 0, context->padded_data_length);
-    memcpy(context->padded_data, data, data_length);
-
-    return context;
-}
-
-void pkcs7_pad(pkcs7_context* context) {
-    for (uint8_t i = 0; i < context->padding_byte; i++) {
-        context->padded_data[context->data_length + i] = context->padding_byte;
+    // Allocate memory for the padding context;
+    pkcs7_pad_ctx* pad_ctx = safe_malloc(sizeof *pad_ctx);
+    // The padding byte is the amount of bytes added;
+    // If data = 10 bytes and the block size is 16, 6 bytes of value 0x06 will be appended;
+    pad_ctx->padding_byte = block_size - (data_length % block_size);
+    // Length of the data with padding;
+    pad_ctx->padded_data_length = data_length + pad_ctx->padding_byte;
+    // Allocate memory for byte array containing the padded data;
+    pad_ctx->padded_data = safe_malloc(pad_ctx->padded_data_length * sizeof *(pad_ctx->padded_data));
+    // Set all entries to 0;
+    memset(pad_ctx->padded_data, 0, pad_ctx->padded_data_length);
+    // Copy the initial data into the padded data array;
+    memcpy(pad_ctx->padded_data, data, data_length);
+    // Pad the rest of the array up to a multiple of the block size;
+    for (uint8_t i = 0; i < pad_ctx->padding_byte; i++) {
+        pad_ctx->padded_data[data_length + i] = pad_ctx->padding_byte;
     }
+    return pad_ctx;
 }
 
-pkcs7_context* pkcs7_unpad(uint8_t* padded_data, size_t padded_data_length, uint8_t block_size) {
-    uint8_t padding_byte = padded_data[padded_data_length - 1];
-    size_t data_length = padded_data_length - padding_byte;
-    pkcs7_context* context = pkcs7_context_init(padded_data, data_length, block_size);
-    return context;
+static bool pkcs7_validate_padding(pkcs7_pad_ctx* pad_ctx) {
+    size_t data_length = pad_ctx->padded_data_length - pad_ctx->padding_byte;
+    uint8_t expected_byte = pad_ctx->padding_byte;
+    // Check if the last element is equal to the padding byte;
+    if (pad_ctx->padded_data[pad_ctx->padded_data_length - 1] != expected_byte) {
+        return false;
+    }
+    // Check if the rest of the padding bytes are valid;
+    for (uint8_t i = 0; i < pad_ctx->padding_byte; i++) {
+        if (pad_ctx->padded_data[data_length + i] != expected_byte) {
+            return false;
+        }
+    }
+    return true;
 }
 
-void pkcs7_context_destroy(pkcs7_context* context) {
-    free(context->data);
-    free(context->padded_data);
-    free(context);
+pkcs7_unpad_ctx* pkcs7_unpad(pkcs7_pad_ctx* pad_ctx, uint8_t block_size) {
+    // Returns NULL if the padding is not valid;
+    if (!pkcs7_validate_padding(pad_ctx)) {
+        return NULL;
+    }
+    // Allocate memory for the padding context;
+    pkcs7_unpad_ctx* unpad_ctx = safe_malloc(sizeof *unpad_ctx);
+    unpad_ctx->padding_byte = pad_ctx->padding_byte;
+    // Length of the data without padding;
+    unpad_ctx->data_length = pad_ctx->padded_data_length - pad_ctx->padding_byte;
+    // Allocate memory for byte array containing the unpadded data;
+    unpad_ctx->data = safe_malloc(unpad_ctx->data_length * sizeof *(unpad_ctx->data));
+    // Copy the stripped data into the data array;
+    memcpy(unpad_ctx->data, pad_ctx->padded_data, unpad_ctx->data_length);
+    return unpad_ctx;
+}
+
+void pkcs7_destroy(pkcs7_pad_ctx* pad_ctx, pkcs7_unpad_ctx* unpad_ctx) {
+    // Free
+    //  - The padded data array followed by the padding context;
+    free(pad_ctx->padded_data);
+    free(pad_ctx);
+    //  - The data array followed by the unpadding context;
+    free(unpad_ctx->data);
+    free(unpad_ctx);
 }

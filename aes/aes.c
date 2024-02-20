@@ -57,7 +57,7 @@ uint8_t rcon[255] = {
     0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb
 };
 
-void row_col_map(uint8_t* dest, uint8_t* src) {
+static void row_col_map(uint8_t* dest, uint8_t* src) {
     for (size_t i = 0; i < 4; i++) {
         for (size_t j = 0; j < 4; j++) {
             dest[i + 4 * j] = src[i * 4 + j];
@@ -65,19 +65,19 @@ void row_col_map(uint8_t* dest, uint8_t* src) {
     }
 }
 
-uint8_t get_s_box_value(uint8_t index) {
+static uint8_t get_s_box_value(uint8_t index) {
     return s_box[index];
 }
 
-uint8_t get_s_box_inverse(uint8_t index) {
+static uint8_t get_s_box_inverse(uint8_t index) {
     return inverse_s_box[index];
 }
 
-uint8_t get_rcon_value(uint8_t iteration) {
+static uint8_t get_rcon_value(uint8_t iteration) {
     return rcon[iteration];
 }
 
-void rotate_word(uint8_t* word) {
+static void rotate_word(uint8_t* word) {
     uint8_t byte;
     byte = word[0];
     for (size_t i = 0; i < 3; i++) {
@@ -86,7 +86,7 @@ void rotate_word(uint8_t* word) {
     word[3] = byte;
 }
 
-void key_schedule(uint8_t* word, size_t iteration) {
+static void key_schedule(uint8_t* word, size_t iteration) {
     rotate_word(word);
     for (size_t i = 0; i < 4; i++) {
         word[i] = get_s_box_value(word[i]);
@@ -94,7 +94,7 @@ void key_schedule(uint8_t* word, size_t iteration) {
     word[0] ^= get_rcon_value(iteration);
 }
 
-void key_expansion(uint8_t* expanded_key, uint8_t* key, aes_key_size size, size_t expanded_key_size) {
+static void key_expansion(uint8_t* expanded_key, uint8_t* key, aes_key_size size, size_t expanded_key_size) {
     size_t current_size = 0;
     size_t rcon_iteration = 1;
     uint8_t temp_word[4] = { 0 };
@@ -122,7 +122,7 @@ void key_expansion(uint8_t* expanded_key, uint8_t* key, aes_key_size size, size_
     }
 }
 
-void sub_bytes(uint8_t* state, bool decrypt) {
+static void sub_bytes(uint8_t* state, bool decrypt) {
     for (size_t i = 0; i < 16; i++) {
         if (decrypt) {
             state[i] = get_s_box_inverse(state[i]);
@@ -132,7 +132,7 @@ void sub_bytes(uint8_t* state, bool decrypt) {
     }
 }
 
-void shift_rows(uint8_t* state, bool decrypt) {
+static void shift_rows(uint8_t* state, bool decrypt) {
     uint8_t temp[4] = { 0 };
     for (size_t i = 1; i < 4; i++) {
         if (decrypt) {
@@ -147,13 +147,13 @@ void shift_rows(uint8_t* state, bool decrypt) {
     }
 }
 
-void add_round_key(uint8_t* state, uint8_t* round_key) {
+static void add_round_key(uint8_t* state, uint8_t* round_key) {
     for (size_t i = 0; i < 16; i++) {
         state[i] ^= round_key[i];
     }
 }
 
-uint8_t g_mult(uint8_t poly_A, uint8_t poly_B) {
+static uint8_t g_mult(uint8_t poly_A, uint8_t poly_B) {
     uint8_t product = 0;
     uint8_t high_bit = 0;
     for (size_t i = 0; i < 8; i++) {
@@ -170,7 +170,7 @@ uint8_t g_mult(uint8_t poly_A, uint8_t poly_B) {
     return product;
 }
 
-void mix_column(uint8_t* column, bool decrypt) {
+static void mix_column(uint8_t* column, bool decrypt) {
     uint8_t temp[4];
     memcpy(temp, column, 4);
     if (decrypt) {
@@ -186,7 +186,7 @@ void mix_column(uint8_t* column, bool decrypt) {
     }
 }
 
-void mix_columns(uint8_t* state, bool decrypt) {
+static void mix_columns(uint8_t* state, bool decrypt) {
     uint8_t column[4];
     for (size_t i = 0; i < 4; i++) {
         for (size_t j = 0; j < 4; j++) {
@@ -199,7 +199,7 @@ void mix_columns(uint8_t* state, bool decrypt) {
     }
 }
 
-void aes_round(uint8_t* state, uint8_t* round_key, bool decrypt) {
+static void aes_round(uint8_t* state, uint8_t* round_key, bool decrypt) {
     if (decrypt) {
         shift_rows(state, true);
         sub_bytes(state, true);
@@ -213,11 +213,11 @@ void aes_round(uint8_t* state, uint8_t* round_key, bool decrypt) {
     }
 }
 
-void generate_round_key(uint8_t* expanded_key, uint8_t* round_key) {
+static void generate_round_key(uint8_t* expanded_key, uint8_t* round_key) {
     row_col_map(round_key, expanded_key);
 }
 
-void aes_main(uint8_t* state, uint8_t* expanded_key, size_t nr_rounds, bool decrypt) {
+static void aes_main(uint8_t* state, uint8_t* expanded_key, size_t nr_rounds, bool decrypt) {
     uint8_t round_key[16] = { 0 };
     if (decrypt) {
         generate_round_key(expanded_key + 16 * nr_rounds, round_key);
