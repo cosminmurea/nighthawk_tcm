@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <errno.h>
 #include "general.h"
 
 void print_bytes_hex(uint8_t* byte_array, size_t size) {

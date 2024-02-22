@@ -1,23 +1,30 @@
 #include "aes.h"
+#include "../utils/general.h"
 #include "../utils/pkcs7.h"
 
 int main() {
     uint8_t key[16] = {
-        0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
+        0xac, 0x58, 0x00, 0xac, 0x3c, 0xb5, 0x9c, 0x7c, 0x14, 0xf3, 0x60, 0x19, 0xe4, 0x3b, 0x44, 0xfe
     };
-    uint8_t input[16] = {
-        0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a
+    uint8_t input[6] = {
+        0xf6, 0xce, 0xe5, 0xff, 0x28, 0xfd
     };
-    uint8_t output[16], output2[16];
-    aes_key_size size = SIZE_128;
-    // aes(input, output, key, size, false);
-    // print_bytes_hex(output, 16);
-    // aes(output, output2, key, size, true);
-    // print_bytes_hex(output2, 16);
-    print_bytes_hex(input, 16);
-    pkcs7_pad_ctx* pad_ctx = pkcs7_pad(input, 16, 32);
+    uint8_t iv[16] = {
+        0xf0, 0x13, 0xce, 0x1e, 0xc9, 0x01, 0xb5, 0xb6, 0x0a, 0x85, 0xa9, 0x86, 0xb3, 0xb7, 0x2e, 0xba
+    };
+    print_bytes_hex(input, 6);
+    pkcs7_pad_ctx* pad_ctx = pkcs7_pad(input, 6, AES_BLOCK_SIZE);
     print_bytes_hex(pkcs7_get_padded(pad_ctx), pkcs7_get_padded_length(pad_ctx));
-    pkcs7_unpad_ctx* unpad_ctx = pkcs7_unpad(pad_ctx, 32);
+    pkcs7_unpad_ctx* unpad_ctx = pkcs7_unpad(pkcs7_get_padded(pad_ctx), pkcs7_get_padded_length(pad_ctx));
     print_bytes_hex(pkcs7_get_unpadded(unpad_ctx), pkcs7_get_unpadded_length(unpad_ctx));
+    pkcs7_destroy_pad_ctx(pad_ctx);
+    pkcs7_destroy_unpad_ctx(unpad_ctx);
+    // uint8_t* cipher = aes_cbc_encrypt(input, iv, 6, key, AES_KEY_SIZE_128);
+    // print_bytes_hex(cipher, 16);
+    // print_bytes_hex(input, 16);
+    // pkcs7_pad_ctx* pad_ctx = pkcs7_pad(input, 16, 32);
+    // print_bytes_hex(pkcs7_get_padded(pad_ctx), pkcs7_get_padded_length(pad_ctx));
+    // pkcs7_unpad_ctx* unpad_ctx = pkcs7_unpad(pad_ctx, 32);
+    // print_bytes_hex(pkcs7_get_unpadded(unpad_ctx), pkcs7_get_unpadded_length(unpad_ctx));
     return 0;
 }
