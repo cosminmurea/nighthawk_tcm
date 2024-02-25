@@ -3,7 +3,7 @@
 #include "../utils/general.h"
 #include "../utils/pkcs7.h"
 
-const uint8_t s_box[256] = {
+static const uint8_t s_box[256] = {
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
     0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
@@ -22,7 +22,7 @@ const uint8_t s_box[256] = {
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
-const uint8_t inverse_s_box[256] = {
+static const uint8_t inverse_s_box[256] = {
     0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
     0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
     0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
@@ -41,7 +41,7 @@ const uint8_t inverse_s_box[256] = {
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 };
 
-const uint8_t rcon[255] = {
+static const uint8_t rcon[255] = {
     0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a,
     0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39,
     0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a,
@@ -276,21 +276,62 @@ uint8_t aes(uint8_t* data_block, uint8_t* cipher_block, uint8_t* key, uint8_t ke
     return 0;
 }
 
-// uint8_t* aes_cbc_encrypt(uint8_t* data, uint8_t* init_v, size_t data_length, uint8_t* key, uint8_t key_size) {
-//     // Pad the data;
-//     pkcs7_pad_ctx* pad_ctx = pkcs7_pad(data, data_length, AES_BLOCK_SIZE);
-//     uint8_t* padded_data = pkcs7_get_padded(pad_ctx);
-//     uint8_t padded_length = pkcs7_get_padded_length(pad_ctx);
-//     uint8_t temp[AES_BLOCK_SIZE];
-//     print_bytes_hex(padded_data, pkcs7_get_padded_length(pad_ctx));
+uint8_t* aes_cbc_encrypt(uint8_t* buffer, size_t buffer_length, uint8_t* iv, uint8_t* key, uint8_t key_size) {
+    // Apply PKCS7 padding to the buffer;
+    pkcs7_pad_ctx* pad_ctx = pkcs7_pad(buffer, buffer_length, AES_BLOCK_SIZE);
+    uint8_t* padded_buffer = pkcs7_get_padded(pad_ctx);
+    size_t padded_length = pkcs7_get_padded_length(pad_ctx);
+    // Allocate memory for the encryption buffer;
+    uint8_t* encrypted_buffer = safe_malloc(padded_length * sizeof *encrypted_buffer);
+    memcpy(encrypted_buffer, padded_buffer, padded_length);
+    uint8_t temp_iv[AES_BLOCK_SIZE];
+    memcpy(temp_iv, iv, AES_BLOCK_SIZE);
+    // For each block XOR it with the IV and then encrypt it;
+    for (size_t i = 0; i < padded_length; i += AES_BLOCK_SIZE) {
+        for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
+            padded_buffer[j] ^= temp_iv[j];
+        }
+        aes(padded_buffer, padded_buffer, key, key_size, false);
+        // The next IV is the current encrypted block;
+        memcpy(temp_iv, padded_buffer, AES_BLOCK_SIZE);
+        // Pointer jump to the start of the next block;
+        padded_buffer += AES_BLOCK_SIZE;
+    }
+    memcpy(encrypted_buffer, pkcs7_get_padded(pad_ctx), padded_length);
+    // Free the padding context memory;
+    pkcs7_destroy_pad_ctx(pad_ctx);
+    return encrypted_buffer;
+}
 
-//     for (size_t i = 0; i < padded_length; i += AES_BLOCK_SIZE) {
-//         for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
-//             padded_data[j] ^= init_v[j];
-//         }
-//         aes(padded_data, padded_data, key, key_size, false);
-//         memcpy(init_v, padded_data, AES_BLOCK_SIZE);
-//         padded_data += AES_BLOCK_SIZE;
-//     }
-//     return pkcs7_get_padded(pad_ctx);
-// }
+uint8_t* aes_cbc_decrypt(uint8_t* buffer, size_t buffer_length, uint8_t* iv, uint8_t* key, uint8_t key_size) {
+    // Allocate memory for the decryption buffer;
+    uint8_t* decrypted_buffer = safe_malloc(buffer_length * sizeof *decrypted_buffer);
+    memcpy(decrypted_buffer, buffer, buffer_length);
+    // Holds the start of the decryption buffer;
+    uint8_t* temp_ptr = decrypted_buffer;
+    uint8_t temp_iv[AES_BLOCK_SIZE];
+    memcpy(temp_iv, iv, AES_BLOCK_SIZE);
+    uint8_t temp_iv2[AES_BLOCK_SIZE];
+    // For each block decrypt it and the XOR it with the IV;
+    for (size_t i = 0; i < buffer_length; i += AES_BLOCK_SIZE) {
+        // The next IV is the current encrypted block;
+        memcpy(temp_iv2, decrypted_buffer, AES_BLOCK_SIZE);
+        aes(decrypted_buffer, decrypted_buffer, key, key_size, true);
+        for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
+            decrypted_buffer[j] ^= temp_iv[j];
+        }
+        // Load the next IV;
+        memcpy(temp_iv, temp_iv2, AES_BLOCK_SIZE);
+        // Jump to the start of the next block;
+        decrypted_buffer += AES_BLOCK_SIZE;
+    }
+
+    // Rewind to the start of the buffer;
+    decrypted_buffer = temp_ptr;
+    print_bytes_hex(decrypted_buffer, 32);
+    // Unpad the buffer;
+    pkcs7_unpad_ctx* unpad_ctx = pkcs7_unpad(decrypted_buffer, buffer_length);
+    uint8_t* plaintext = safe_malloc(pkcs7_get_unpadded_length(unpad_ctx) * sizeof *plaintext);
+    memcpy(plaintext, pkcs7_get_unpadded(unpad_ctx), pkcs7_get_unpadded_length(unpad_ctx));
+    return plaintext;
+}
