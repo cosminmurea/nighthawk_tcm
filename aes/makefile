@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -g -Wall
 SOURCE = driver.c
-DEPS = ./aes.c ../utils/general.c ../utils/pkcs7.c
+DEPS = ./aes.c ../utils/general.c ../utils/pkcs7.c ../chaos/entropy.c
 TARGET = aes.out
 
 run: $(TARGET)
