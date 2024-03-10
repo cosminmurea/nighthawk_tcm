@@ -1,13 +1,13 @@
+SOURCE = driver.c
+TARGET = entropy.out
+DEPS = ./entropy.c
 CC = gcc
 CFLAGS = -g -Wall
-SOURCE = driver.c
-DEPS = ./aes.c ../utils/general.c ../utils/pkcs7.c
-TARGET = aes.out
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) $(FILE)
 
-$(TARGET): $(SOURCE) $(DEPS)
+$(TARGET): $(SOURCE)
 	$(CC) $(CFLAGS) $(SOURCE) $(DEPS) -o $(TARGET)
 
 .PHONY: clean

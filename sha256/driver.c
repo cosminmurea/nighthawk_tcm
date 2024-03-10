@@ -1,4 +1,6 @@
 #include "sha256.h"
+#include <string.h>
+#include "../utils/general.h"
 
 int main(int argc, char* argv[]) {
 
@@ -7,13 +9,13 @@ int main(int argc, char* argv[]) {
     if (strcmp(argv[1], "-t") == 0) {
         sha256_testing("./test_vectors/SHA256ShortMsg.rsp");
         sha256_testing("./test_vectors/SHA256LongMsg.rsp");
-    } else {
-        uint8_t* message = NULL;
-        size_t message_length = 0;
-        read_file_bytes(argv[1], &message, &message_length);
-        sha256(message, message_length);
-        free(message);
-    }
+    } // else {
+    //     // uint8_t* message = NULL;
+    //     // size_t message_length = 0;
+    //     // file_to_byte_array(argv[1], &message, &message_length);
+    //     // sha256(message, message_length);
+    //     // free(message);
+    // }
 
     return 0;
 }

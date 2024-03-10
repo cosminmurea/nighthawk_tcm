@@ -3,14 +3,12 @@
 #include <unistd.h>
 #include "entropy.h"
 
-// The length of the internal seed for the bifurcation map in bytes.
-// The initial population value is a double => the seed is 8 bytes long.
+// Length of the internal seed used as initial value for the chaotic systems;
 #define INTERNAL_SEED_LEN 8
-// The number of iterations for the bifurcation map to reach a chaotic state.
-#define BM_WARMUP_ITER 10000
+// The number of iterations for a chaotic system to reach a chaotic state;
+#define WARMUP_ITER 10000
 
-// Generates a 64-bit seed as a byte array (8 * 8) using /dev/urandom.
-static void urandom(uint8_t* seed) {
+static void urandom_seed(uint8_t* seed) {
     // Open /dev/urandom and save the file descriptor;
     int32_t urandom_fd = open("/dev/urandom", O_RDONLY);
     if (urandom_fd == -1) {
@@ -25,13 +23,12 @@ static void urandom(uint8_t* seed) {
     close(urandom_fd);
 }
 
-// Implements the bifuraction map x(n + 1) = r * x(n) * (1 - x(n)).
-static double bifurcation_map(double x, double r) {
+// Implements the logistics map x(n + 1) = r * x(n) * (1 - x(n)).
+static double logistics_map(double x, double r) {
     return r * x * (1 - x);
 }
 
-// Normalizes the seed byte array into a double value in the [0, 1] range.
-static double bm_init(uint8_t* seed) {
+static double normalize(uint8_t* seed) {
     // Turn the seed byte array into a 64-bit unsigned integer;
     uint64_t integer_value = 0;
     double double_value = 0.0;
@@ -43,29 +40,28 @@ static double bm_init(uint8_t* seed) {
     return double_value;
 }
 
-// Iterates the bifurcation map until it reaches a chaotic state.
-static void bm_warmup(double *x, double r) {
-    for (size_t i = 0; i < BM_WARMUP_ITER; i++) {
-        *x = bifurcation_map(*x, r);
+// Iterates the logistics map until it reaches a chaotic state.
+static void lm_warmup(double *x, double r) {
+    for (size_t i = 0; i < WARMUP_ITER; i++) {
+        *x = logistics_map(*x, r);
     }
 }
 
-void bm_generate_entropy(uint8_t* key, size_t key_len) {
-    // Set up the parameters and generate a seed;
-    uint8_t initial_seed[INTERNAL_SEED_LEN] = { 0 };
-    urandom(initial_seed);
+void lm_generate_entropy(uint8_t* key, size_t key_len) {
+    // Set up the r parameter and generate a random x0;
+    uint8_t seed[INTERNAL_SEED_LEN] = { 0 };
+    urandom(seed);
     double r = 4.00;
-    double x = bm_init(initial_seed);
-    // Iterate the bifurcation map to reach a chaotic state;
-    bm_warmup(&x, r);
-    // Iterate the bifuraction map and extract one bit per loop;
+    double x = normalize(seed);
+    // Iterate the logistics map to reach a chaotic state;
+    lm_warmup(&x, r);
+    // Iterate the logistics map and extract one bit per loop;
     for (size_t i = 0; i < key_len; i++) {
         for (uint8_t j = 0; j < 8; j++) {
-            x = bifurcation_map(x, r);
+            x = logistics_map(x, r);
             // Transform into bit values;
             uint8_t rand_bit = (x >= 0.5) ? 1 : 0;
             key[i] = (key[i] << 1) | rand_bit;
         }
     }
-    // Hash the key and return the hashed value (clipped if needed);
 }

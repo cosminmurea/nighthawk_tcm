@@ -1,17 +1,11 @@
+#include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include "aes.h"
 #include "../utils/general.h"
 #include "../utils/pkcs7.h"
 
-struct aes_cbc_context {
-    uint8_t* plain;
-    size_t plain_length;
-    uint8_t* cipher;
-    size_t cipher_length;
-    uint8_t* key;
-    uint8_t iv[AES_BLOCK_SIZE];
-};
+#define AES_MAX_TEST_MSG_LENGTH 350
 
 static const uint8_t s_box[256] = {
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
@@ -107,7 +101,7 @@ static void key_schedule(uint8_t* word, size_t iteration) {
     word[0] ^= get_rcon_value(iteration);
 }
 
-static void key_expansion(uint8_t* expanded_key, uint8_t* key, uint8_t key_size, size_t expanded_key_size) {
+static void key_expansion(uint8_t* key, uint8_t key_size, uint8_t* expanded_key, size_t expanded_key_size) {
     size_t current_size = 0;
     size_t rcon_iteration = 1;
     uint8_t temp_word[AES_WORD_SIZE] = { 0 };
@@ -279,98 +273,121 @@ uint8_t aes(uint8_t* data_block, uint8_t* cipher_block, uint8_t* key, uint8_t ke
     expanded_key_size = AES_BLOCK_SIZE * (nr_rounds + 1);
     expanded_key = safe_malloc(expanded_key_size * sizeof *expanded_key);
     row_col_map(block, data_block);
-    key_expansion(expanded_key, key, key_size, expanded_key_size);
+    key_expansion(key, key_size, expanded_key, expanded_key_size);
     aes_main(block, expanded_key, nr_rounds, decrypt);
     row_col_map(cipher_block, block);
     free(expanded_key);
     return 0;
 }
 
-// aes_cbc_ctx* aes_cbc_encrypt(const uint8_t* plain, size_t plain_length, uint8_t* iv, uint8_t* key, uint8_t key_size) {
-//     // Initialize the AES CBC context and populate it for encryption;
-//     aes_cbc_ctx* enc_ctx = safe_malloc(sizeof *enc_ctx);
-//     enc_ctx->plain_length = plain_length;
-//     enc_ctx->plain = safe_malloc(plain_length * sizeof *(enc_ctx->plain));
-//     memcpy(enc_ctx->plain, plain, plain_length);
-//     memcpy(enc_ctx->iv, iv, AES_BLOCK_SIZE);
-//     enc_ctx->key = safe_malloc(key_size * sizeof *(enc_ctx->key));
-//     memcpy(enc_ctx->key, key, key_size);
-//     // Apply padding to the plaintext;
-//     pkcs7_ctx* pad_ctx = pkcs7_pad(plain, plain_length);
-//     // The length of the ciphertext is equal to the length of the padded plaintext;
-//     enc_ctx->cipher_length = pkcs7_get_padded_length(pad_ctx);
-//     enc_ctx->cipher = safe_malloc(enc_ctx->cipher_length * sizeof *(enc_ctx->cipher));
-//     // Store a pointer to the padded plaintext;
-//     uint8_t* padded_plain = pkcs7_get_padded(pad_ctx);
-//     // For each block of the plaintext XOR it with the IV and then encrypt;
-//     for (size_t i = 0; i < enc_ctx->cipher_length; i += AES_BLOCK_SIZE) {
-//         for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
-//             padded_plain[j] ^= enc_ctx->iv[j];
-//         }
-//         aes(padded_plain, padded_plain, key, key_size, false);
-//         // The next IV is the current encrypted block;
-//         memcpy(enc_ctx->iv, padded_plain, AES_BLOCK_SIZE);
-//         // Pointer jump to the start of the next block;
-//         padded_plain += AES_BLOCK_SIZE;
-//     }
-//     memcpy(enc_ctx->cipher, pkcs7_get_padded(pad_ctx), enc_ctx->cipher_length);
-//     memcpy(enc_ctx->iv, iv, AES_BLOCK_SIZE);
-//     pkcs7_destroy(pad_ctx);
-//     return enc_ctx;
-// }
+void aes_cbc_encrypt(const uint8_t* plain, size_t plain_len, uint8_t* iv, uint8_t* key, uint8_t key_size, uint8_t** cipher, size_t* cipher_len) {
+    uint8_t* padded = NULL;
+    uint8_t temp_iv[AES_BLOCK_SIZE];
+    memcpy(temp_iv, iv, AES_BLOCK_SIZE);
+    // Pad the plaintext and store it in the padded buffer;
+    pkcs7_pad(plain, plain_len, &padded, cipher_len);
+    *cipher = safe_malloc(*cipher_len * sizeof **cipher);
+    // For each block of the plaintext XOR it with the IV and then encrypt;
+    for (size_t i = 0; i < *cipher_len; i += AES_BLOCK_SIZE) {
+        for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
+            padded[i + j] ^= temp_iv[j];
+        }
+        aes(padded + i, *cipher + i, key, key_size, false);
+        // The next IV is the current encrypted block;
+        memcpy(temp_iv, *cipher + i, AES_BLOCK_SIZE);
+    }
+    free(padded);
+}
 
-// aes_cbc_ctx* aes_cbc_decrypt(const uint8_t* cipher, size_t cipher_length, uint8_t* iv, uint8_t* key, uint8_t key_size) {
-//     // Initialize the AES CBC context and populate it for decryption;
-//     aes_cbc_ctx* dec_ctx = safe_malloc(sizeof *dec_ctx);
-//     dec_ctx->cipher_length = cipher_length;
-//     dec_ctx->cipher = safe_malloc(cipher_length * sizeof *(dec_ctx->cipher));
-//     // Store a pointer to the ciphertext;
-//     uint8_t* cipher_ptr = dec_ctx->cipher;
-//     memcpy(dec_ctx->cipher, cipher, cipher_length);
-//     memcpy(dec_ctx->iv, iv, AES_BLOCK_SIZE);
-//     dec_ctx->key = safe_malloc(key_size * sizeof *(dec_ctx->key));
-//     memcpy(dec_ctx->key, key, key_size);
-//     uint8_t temp_iv[AES_BLOCK_SIZE];
-//     // For each block of the ciphertext decrypt it and the XOR it with the IV;
-//     for (size_t i = 0; i < dec_ctx->cipher_length; i += AES_BLOCK_SIZE) {
-//         memcpy(temp_iv, cipher_ptr, AES_BLOCK_SIZE);
-//         aes(cipher_ptr, cipher_ptr, key, key_size, true);
-//         for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
-//             cipher_ptr[j] ^= dec_ctx->iv[j];
-//         }
-//         // Load the next IV;
-//         memcpy(dec_ctx->iv, temp_iv, AES_BLOCK_SIZE);
-//         // Jump to the start of the next block;
-//         cipher_ptr += AES_BLOCK_SIZE;
-//     }
-//     // Unpad the plaintext
-//     pkcs7_ctx* unpad_ctx = pkcs7_unpad(dec_ctx->cipher, dec_ctx->cipher_length);
-//     dec_ctx->plain_length = pkcs7_get_unpadded_length(unpad_ctx);
-//     dec_ctx->plain = safe_malloc(dec_ctx->plain_length * sizeof *(dec_ctx->plain));
-//     memcpy(dec_ctx->plain, pkcs7_get_unpadded(unpad_ctx), dec_ctx->plain_length);
-//     pkcs7_destroy(unpad_ctx);
-//     return dec_ctx;
-// }
+// Currently no padding is used for testing purposes;
+void aes_cbc_decrypt(const uint8_t* cipher, size_t cipher_len, uint8_t* iv, uint8_t* key, uint8_t key_size, uint8_t** plain, size_t* plain_len) {
+    uint8_t* padded = safe_malloc(cipher_len * sizeof *padded);
+    memcpy(padded, cipher, cipher_len);
+    uint8_t temp_iv[AES_BLOCK_SIZE], temp_iv2[AES_BLOCK_SIZE];
+    memcpy(temp_iv, iv, AES_BLOCK_SIZE);
+    // For each block of the ciphertext decrypt it and the XOR it with the IV;
+    for (size_t i = 0; i < cipher_len; i += AES_BLOCK_SIZE) {
+        // Save the current cipher block to use as the next IV;
+        memcpy(temp_iv2, padded + i, AES_BLOCK_SIZE);
+        aes(padded + i, padded + i, key, key_size, true);
+        for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
+            padded[i + j] ^= temp_iv[j];
+        }
+        memcpy(temp_iv, temp_iv2, AES_BLOCK_SIZE);
 
-// void aes_cbc_destroy(aes_cbc_ctx* ctx) {
-//     free(ctx->key);
-//     free(ctx->cipher);
-//     free(ctx->plain);
-//     free(ctx);
-// }
+    }
+    // pkcs7_unpad(cipher, cipher_len, plain, plain_len);
+    *plain_len = cipher_len;
+    *plain = safe_malloc(*plain_len * sizeof **plain);
+    memcpy(*plain, padded, cipher_len);
+    free(padded);
+}
 
-// uint8_t* aes_cbc_get_cipher(aes_cbc_ctx* ctx) {
-//     return ctx->cipher;
-// }
+void aes_cbc_test(const char* test_file) {
+    // Open the test file;
+    FILE* file_ptr = safe_fopen(test_file, "rb");
+    char buffer[AES_MAX_TEST_MSG_LENGTH];
+    uint8_t* key = NULL;
+    uint8_t* iv = NULL;
+    uint8_t* plain = NULL;
+    size_t plain_len = 0;
+    uint8_t* cipher = NULL;
+    uint8_t* nist_cipher = NULL;
+    size_t cipher_len = 0;
+    size_t count = 1;
 
-// uint8_t* aes_cbc_get_plain(aes_cbc_ctx* ctx) {
-//     return ctx->plain;
-// }
-
-// size_t aes_cbc_get_cipher_length(aes_cbc_ctx* ctx) {
-//     return ctx->cipher_length;
-// }
-
-// size_t aes_cbc_get_plain_length(aes_cbc_ctx* ctx) {
-//     return ctx->plain_length;
-// }
+    while (fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr)) {
+        // Read the key and convert it to a byte array;
+        sscanf(buffer, "KEY = %s", buffer);
+        key = hex_to_byte_array(buffer, 32);
+        print_byte_array(key, 16);
+        memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+        // Read the IV and convert it to a byte array;
+        fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
+        sscanf(buffer, "IV = %s", buffer);
+        iv = hex_to_byte_array(buffer, 32);
+        print_byte_array(iv, 16);
+        memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+        if (count > 10) {
+            plain_len = (count - 10) * AES_BLOCK_SIZE;
+            // Read the ciphertext and convert it to a byte array;
+            fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
+            sscanf(buffer, "CIPHERTEXT = %s", buffer);
+            nist_cipher = hex_to_byte_array(buffer, plain_len * 2);
+            print_byte_array(nist_cipher, plain_len);
+            memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+            // Read the plaintext and convert it to a byte array;
+            fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
+            sscanf(buffer, "PLAINTEXT = %s", buffer);
+            plain = hex_to_byte_array(buffer, plain_len * 2);
+            print_byte_array(plain, plain_len);
+            memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+            // Apply decryption;
+            aes_cbc_decrypt(nist_cipher, plain_len, iv, key, AES_KEY_SIZE_128, &cipher, &cipher_len);
+            print_byte_array(cipher, cipher_len);
+        } else {
+            plain_len = count * AES_BLOCK_SIZE;
+            // Read the plaintext and convert it to a byte array;
+            fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
+            sscanf(buffer, "PLAINTEXT = %s", buffer);
+            plain = hex_to_byte_array(buffer, plain_len * 2);
+            print_byte_array(plain, plain_len);
+            memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+            // Read the ciphertext and convert it to a byte array;
+            fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
+            sscanf(buffer, "CIPHERTEXT = %s", buffer);
+            nist_cipher = hex_to_byte_array(buffer, plain_len * 2);
+            print_byte_array(nist_cipher, plain_len);
+            memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+            // Apply decryption;
+            aes_cbc_encrypt(plain, plain_len, iv, key, AES_KEY_SIZE_128, &cipher, &cipher_len);
+            print_byte_array(cipher, cipher_len - 16);
+        }
+        // Every fifth line is empty;
+        fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
+        memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+        printf("\n");
+        count++;
+    }
+    fclose(file_ptr);
+}

@@ -7,7 +7,7 @@ void pkcs7_pad(const uint8_t* data, size_t data_len, uint8_t** padded, size_t* p
     uint8_t padding_byte = PKCS7_BLOCK_SIZE - (data_len % PKCS7_BLOCK_SIZE);
     *padded_len = data_len + padding_byte;
     // Allocate memory for the padded data and copy the initial data;
-    *padded = safe_malloc(*padded_len * sizeof *(*padded));
+    *padded = safe_malloc(*padded_len * sizeof **padded);
     memcpy(*padded, data, data_len);
     // Apply padding;
     for (uint8_t i = 0; i < padding_byte; i++) {
@@ -39,6 +39,6 @@ void pkcs7_unpad(const uint8_t* padded, size_t padded_len, uint8_t** data, size_
     uint8_t padding_byte = padded[padded_len - 1];
     *data_len = padded_len - padding_byte;
     // Allocate memory for the unpadded data;
-    *data = safe_malloc(*data_len * sizeof *(*data));
+    *data = safe_malloc(*data_len * sizeof **data);
     memcpy(*data, padded, *data_len);
 }
