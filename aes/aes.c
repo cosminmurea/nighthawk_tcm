@@ -105,23 +105,29 @@ static void key_expansion(uint8_t* key, uint8_t key_size, uint8_t* expanded_key,
     size_t current_size = 0;
     size_t rcon_iteration = 1;
     uint8_t temp_word[AES_WORD_SIZE] = { 0 };
+    // Copy the key into the first N bytes, where N = 16 | 24 | 32;
     for (uint8_t i = 0; i < key_size; i++) {
         expanded_key[i] = key[i];
     }
     current_size += key_size;
+    // Expand the key to the required size;
     while (current_size < expanded_key_size) {
         for (uint8_t i = 0; i < AES_WORD_SIZE; i++) {
+            // Extract a word from the previous one;
             temp_word[i] = expanded_key[(current_size - AES_WORD_SIZE) + i];
         }
+        // Every N bytes run the word through the key schedule;
         if (current_size % key_size == 0) {
             key_schedule(temp_word, rcon_iteration);
             rcon_iteration++;
         }
+        // For N = 32 apply an S-box to the word every 16 bytes (4 words);
         if ((key_size == AES_KEY_SIZE_256) && (current_size % key_size == AES_BLOCK_SIZE)) {
             for (uint8_t i = 0; i < AES_WORD_SIZE; i++) {
                 temp_word[i] = get_s_box_value(temp_word[i]);
             }
         }
+        // XOR the temporary word with the word N bytes before;
         for (uint8_t i = 0; i < AES_WORD_SIZE; i++) {
             expanded_key[current_size] = expanded_key[current_size - key_size] ^ temp_word[i];
             current_size++;
@@ -143,12 +149,28 @@ static void shift_rows(uint8_t* state, bool decrypt) {
     uint8_t temp[AES_WORD_SIZE] = { 0 };
     for (uint8_t i = 1; i < AES_WORD_SIZE; i++) {
         if (decrypt) {
+            // Right shift by 1 - second row, 2 - third row, 3 - fourth row;
+            // 00 01 10 11 => 00 01 10 11
+            // AA BB BC CC => CC AA BB BC
+            // DD AA CC EE => CC EE DD AA
+            // 01 11 11 00 => 11 11 00 01
+            // Copy the first 4 - i bytes from the state word to position i of temp;
             memcpy(temp + i, state + i * AES_WORD_SIZE, AES_WORD_SIZE - i);
+            // Copy the last i bytes from the state word to the start of temp;
             memcpy(temp, state + AES_WORD_SIZE + (i * (AES_WORD_SIZE - 1)), i);
+            // Copy the shifted row back to the state;
             memcpy(state + i * AES_WORD_SIZE, temp, AES_WORD_SIZE);
         } else {
+            // Left shift by 1 - second row, 2 - third row, 3 - fourth row;
+            // 00 01 10 11 => 00 01 10 11
+            // AA BB BC CC => BB BC CC AA
+            // DD AA CC EE => CC EE DD AA
+            // 01 11 11 00 => 00 01 11 11
+            // Copy the last 4 - i bytes from the state word to the start of temp;
             memcpy(temp, (state + i * (AES_WORD_SIZE + 1)), AES_WORD_SIZE - i);
+            // Copy the first i bytes from the state word to position 4 - i of temp;
             memcpy((temp + AES_WORD_SIZE - i), (state + i * AES_WORD_SIZE), i);
+            // Copy the shifted row back to the state;
             memcpy(state + i * AES_WORD_SIZE, temp, AES_WORD_SIZE);
         }
     }

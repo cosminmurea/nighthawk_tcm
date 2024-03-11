@@ -14,16 +14,16 @@ int main() {
         0x53, 0x1c, 0xe7, 0x81, 0x76, 0x40, 0x16, 0x66, 0xaa, 0x30, 0xdb, 0x94, 0xec, 0x4a, 0x30, 0xeb
     };
 
-    uint8_t* cipher = NULL;
-    uint8_t* plain = NULL;
-    size_t plain_len = 0;
-    size_t cipher_len = 0;
-    aes_cbc_encrypt(input, 16, iv, key, 24, &cipher, &cipher_len);
-    print_byte_array(cipher, 32);
-    aes_cbc_decrypt(cipher, 32, iv, key, 24, &plain, &plain_len);
-    print_byte_array(plain, plain_len);
-    free(plain);
-    free(cipher);
+    // uint8_t* cipher = NULL;
+    // uint8_t* plain = NULL;
+    // size_t plain_len = 0;
+    // size_t cipher_len = 0;
+    // aes_cbc_encrypt(input, 16, iv, key, 24, &cipher, &cipher_len);
+    // print_byte_array(cipher, 32);
+    // aes_cbc_decrypt(cipher, 32, iv, key, 24, &plain, &plain_len);
+    // print_byte_array(plain, plain_len);
+    // free(plain);
+    // free(cipher);
 
     aes_cbc_test("./test_vectors/AESCBC128LongMsg.rsp", AES_KEY_SIZE_128);
     aes_cbc_test("./test_vectors/AESCBC192LongMsg.rsp", AES_KEY_SIZE_192);
