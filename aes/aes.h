@@ -19,6 +19,6 @@
 
 void aes_cbc_encrypt(const uint8_t* plain, size_t plain_len, uint8_t* iv, uint8_t* key, uint8_t key_size, uint8_t** cipher, size_t* cipher_len);
 void aes_cbc_decrypt(const uint8_t* cipher, size_t cipher_len, uint8_t* iv, uint8_t* key, uint8_t key_size, uint8_t** plain, size_t* plain_len);
-void aes_cbc_test(const char* test_file);
+void aes_cbc_test(const char* test_file, uint8_t key_size);
 
 #endif
