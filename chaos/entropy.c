@@ -1,11 +1,15 @@
 #include <stdio.h>
+#include <string.h>
+#include <math.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include "entropy.h"
+#include "../utils/general.h"
 
-// Length of the internal seed used as initial value for the chaotic systems;
+// Length of the seed used as initial value for the chaotic systems;
 #define INTERNAL_SEED_LEN 8
-// The number of iterations for a chaotic system to reach a chaotic state;
+// The number of iterations for a system to reach a chaotic state;
 #define WARMUP_ITER 10000
 
 static void urandom_seed(uint8_t* seed) {
@@ -15,7 +19,7 @@ static void urandom_seed(uint8_t* seed) {
         fprintf(stderr, "Could not open /dev/urandom. Proceeding to crash. Cleaning up...");
         exit(EXIT_FAILURE);
     }
-    // Read from /dev/urandom and store into the seed buffer;
+    // Read 8 bytes from /dev/urandom and store them into the seed buffer;
     if (read(urandom_fd, seed, INTERNAL_SEED_LEN) != INTERNAL_SEED_LEN) {
         fprintf(stderr, "Could not read from /dev/urandom. Proceeding to crash. Cleaning up...");
         exit(EXIT_FAILURE);
@@ -23,7 +27,6 @@ static void urandom_seed(uint8_t* seed) {
     close(urandom_fd);
 }
 
-// Implements the logistics map x(n + 1) = r * x(n) * (1 - x(n)).
 static double logistics_map(double x, double r) {
     return r * x * (1 - x);
 }
@@ -40,28 +43,78 @@ static double normalize(uint8_t* seed) {
     return double_value;
 }
 
-// Iterates the logistics map until it reaches a chaotic state.
 static void lm_warmup(double *x, double r) {
+    // Iterate the logistics map to reach a chaotic state;
     for (size_t i = 0; i < WARMUP_ITER; i++) {
         *x = logistics_map(*x, r);
     }
 }
 
 void lm_generate_entropy(uint8_t* key, size_t key_len) {
-    // Set up the r parameter and generate a random x0;
-    uint8_t seed[INTERNAL_SEED_LEN] = { 0 };
-    urandom(seed);
+    // Set up the r parameter and generate a random seed;
     double r = 4.00;
+    uint8_t seed[INTERNAL_SEED_LEN] = { 0 };
+    urandom_seed(seed);
     double x = normalize(seed);
-    // Iterate the logistics map to reach a chaotic state;
+    // Reach a chaotic state with the given parameters;
     lm_warmup(&x, r);
-    // Iterate the logistics map and extract one bit per loop;
+    // Extract one bit from each iteration of the logistics map;
     for (size_t i = 0; i < key_len; i++) {
         for (uint8_t j = 0; j < 8; j++) {
             x = logistics_map(x, r);
             // Transform into bit values;
+            // Comparison bias??
             uint8_t rand_bit = (x >= 0.5) ? 1 : 0;
             key[i] = (key[i] << 1) | rand_bit;
         }
     }
+}
+
+static void byte_array_prob(uint8_t* byte_array, size_t array_len, double* prob) {
+    int freq[array_len];
+    // Initialise the frequency array to -1;
+    for (size_t i = 0; i < array_len; i++) {
+        freq[i] = -1;
+    }
+    // print_byte_array(byte_array, array_len);
+    // Compute the frequencies for the byte array;
+    for (size_t i = 0; i < array_len; i++) {
+        // printf("%X\n", byte_array[i]);
+        int counter = 1;
+        for (size_t j = i + 1; j < array_len; j++) {
+            if (byte_array[i] == byte_array[j]) {
+                counter++;
+                // If a byte has freq > 1, the next occurrences will get a freq of 0;
+                freq[j] = 0;
+            }
+        }
+        if (freq[i] == -1) {
+            freq[i] = counter;
+        }
+    }
+    // Compute the probability of each byte;
+    for (size_t i = 0; i < array_len; i++) {
+        prob[i] = (double)freq[i] / array_len;
+    }
+}
+
+double shannon_entropy(uint8_t* sample, size_t sample_len) {
+    double prob[sample_len];
+    double shannon_entropy = 0.0;
+    // Generate a large sample;
+    byte_array_prob(sample, sample_len, prob);
+    // Print the probabilities of the sample;
+    for (size_t i = 0; i < sample_len; i++) {
+        if (prob[i] != 0) {
+            printf("%f\n", prob[i]);
+        }
+    }
+    printf("\n");
+    // Compute the Shannon entropy of the sample;
+    for (size_t i = 0; i < sample_len; i++) {
+        if (prob[i] != 0) {
+            shannon_entropy -= prob[i] * log2(prob[i]);
+        }
+    }
+    return shannon_entropy;
 }

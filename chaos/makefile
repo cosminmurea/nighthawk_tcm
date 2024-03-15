@@ -1,11 +1,11 @@
 SOURCE = driver.c
 TARGET = entropy.out
-DEPS = ./entropy.c
+DEPS = ./entropy.c ../utils/general.c
 CC = gcc
 CFLAGS = -g -Wall
 
 run: $(TARGET)
-	./$(TARGET) $(FILE)
+	./$(TARGET)
 
 $(TARGET): $(SOURCE)
 	$(CC) $(CFLAGS) $(SOURCE) $(DEPS) -o $(TARGET)
