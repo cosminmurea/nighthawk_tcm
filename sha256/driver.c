@@ -1,21 +1,9 @@
 #include "sha256.h"
-#include <string.h>
 #include "../utils/general.h"
 
 int main(int argc, char* argv[]) {
-
-    // If the first argument is the -t flag, the NIST test suite will be run.
-    // Else the first argument is the path to a file.
-    if (strcmp(argv[1], "-t") == 0) {
-        sha256_testing("./test_vectors/SHA256ShortMsg.rsp");
-        sha256_testing("./test_vectors/SHA256LongMsg.rsp");
-    } // else {
-    //     // uint8_t* message = NULL;
-    //     // size_t message_length = 0;
-    //     // file_to_byte_array(argv[1], &message, &message_length);
-    //     // sha256(message, message_length);
-    //     // free(message);
-    // }
-
+    sha256_testing("./test_vectors/SHA256ShortMsg.rsp");
+    sha256_testing("./test_vectors/SHA256LongMsg.rsp");
+    sha256_monte_carlo("./test_vectors/SHA256Monte.rsp");
     return 0;
 }

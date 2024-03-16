@@ -21,9 +21,15 @@
 void sha256(const uint8_t* data, size_t data_len, uint32_t** digest);
 
 /** ---------------------------------------------------------------------------------------
- * @brief   Test the SHA2-256 implementation using the NIST test vectors.
+ * @brief   Test the SHA2-256 implementation using the NIST short and long messages.
  * @param   test_file   The path of the test file.
  * ---------------------------------------------------------------------------------------- **/
 void sha256_testing(const char* test_file);
+
+/** ---------------------------------------------------------------------------------------
+ * @brief   Test the SHA2-256 implementation using the NIST Monte Carlo test.
+ * @param   test_file   The path of the test file.
+ * ---------------------------------------------------------------------------------------- **/
+void sha256_monte_carlo(const char* test_file);
 
 #endif

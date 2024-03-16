@@ -41,7 +41,7 @@ uint8_t* hex_to_byte_array(const char* hex_string, size_t hex_len) {
     return byte_array;
 }
 
-uint64_t byte_array_to_uint64(const uint8_t* byte_array, size_t size) {
+uint64_t byte_array_to_uint64(const uint8_t* byte_array) {
     uint64_t value = 0;
     for (size_t i = 0; i < sizeof(uint64_t); i++) {
         value |= (uint64_t)(byte_array[i] << i * 8);
@@ -87,4 +87,15 @@ void file_to_byte_array(const char* file_path, uint8_t** buffer, size_t* buffer_
         exit(EXIT_FAILURE);
     }
     fclose(file_ptr);
+}
+
+uint32_t ltb_endian_conv32(uint32_t value) {
+    uint32_t big_endian_value = 0;
+    uint32_t bytes[4] = { 0 };
+    bytes[0] = (value & 0x000000FF) << 24;
+    bytes[1] = (value & 0x0000FF00) << 8;
+    bytes[2] = (value & 0x00FF0000) >> 8;
+    bytes[3] = (value & 0xFF000000) >> 24;
+    big_endian_value = bytes[0] | bytes[1] | bytes[2] | bytes[3];
+    return big_endian_value;
 }
