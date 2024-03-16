@@ -5,16 +5,18 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include "entropy.h"
+#include "../sha256/sha256.h"
 #include "../utils/general.h"
 
 // Length of the seed used as initial value for the chaotic systems;
 #define INTERNAL_SEED_LEN 8
 // The number of iterations for a system to reach a chaotic state;
-#define WARMUP_ITER 10000
+#define WARMUP_ITER 1000000
 
 static void urandom_seed(uint8_t* seed) {
     // Open /dev/urandom and save the file descriptor;
     int32_t urandom_fd = open("/dev/urandom", O_RDONLY);
+    uint32_t* digest = NULL;
     if (urandom_fd == -1) {
         fprintf(stderr, "Could not open /dev/urandom. Proceeding to crash. Cleaning up...");
         exit(EXIT_FAILURE);
@@ -25,10 +27,21 @@ static void urandom_seed(uint8_t* seed) {
         exit(EXIT_FAILURE);
     }
     close(urandom_fd);
+    // Hash the seed to avoid exposing the entropy pool;
+    sha256(seed, INTERNAL_SEED_LEN, &digest);
+    sha256_print_digest(digest);
+    ltb_endian_conv32_array(digest, 8);
+    memcpy(seed, digest + 3, 8);
+    print_byte_array(seed, 8);
+    free(digest);
 }
 
 static double logistics_map(double x, double r) {
     return r * x * (1 - x);
+}
+
+static double logistics_map_prime(double x, double r) {
+    return r * (1 - 2 * x);
 }
 
 static double normalize(uint8_t* seed) {
@@ -70,6 +83,21 @@ void lm_generate_entropy(uint8_t* key, size_t key_len) {
     }
 }
 
+double lm_lyapunov_exp(double r) {
+    double sum = 0.0;
+    uint8_t seed[INTERNAL_SEED_LEN] = { 0 };
+    urandom_seed(seed);
+    double x = normalize(seed);
+    double lyapunov_exp = 0.0;
+    for (size_t i = 0; i < WARMUP_ITER; i++) {
+        double f_prime_x = logistics_map_prime(x, r);
+        x = logistics_map(x, r);
+        sum += log(fabs(f_prime_x));
+    }
+    lyapunov_exp = sum / (double) WARMUP_ITER;
+    return lyapunov_exp;
+}
+
 static void byte_array_prob(uint8_t* byte_array, size_t array_len, double* prob) {
     int freq[array_len];
     // Initialise the frequency array to -1;
@@ -101,12 +129,13 @@ static void byte_array_prob(uint8_t* byte_array, size_t array_len, double* prob)
 double shannon_entropy(uint8_t* sample, size_t sample_len) {
     double prob[sample_len];
     double shannon_entropy = 0.0;
+    size_t count = 0;
     // Generate a large sample;
     byte_array_prob(sample, sample_len, prob);
     // Print the probabilities of the sample;
     for (size_t i = 0; i < sample_len; i++) {
         if (prob[i] != 0) {
-            printf("%f\n", prob[i]);
+            printf("Count: %zu \tProb: \t%f\n", count++, prob[i]);
         }
     }
     printf("\n");

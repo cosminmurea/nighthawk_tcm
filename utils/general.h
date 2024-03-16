@@ -59,9 +59,10 @@ void file_to_byte_array(const char* file_path, uint8_t** buffer, size_t* buffer_
 
 /** ----------------------------------------------------------------------------------
  * @brief   Converts a uint32_t value from little-endian to big-endian.
- * @param   value       The value to be converted.
- * @returns A big-endian uint32_t value.
+ * @details This function converts the array in-place. The data will be overwritten.
+ * @param   array       A pointer to the array to be converted.
+ * @param   array_len   The length in uint32_t elements of the array.
  * ----------------------------------------------------------------------------------- **/
-uint32_t ltb_endian_conv32(uint32_t value);
+void ltb_endian_conv32_array(uint32_t* array, size_t array_len);
 
 #endif

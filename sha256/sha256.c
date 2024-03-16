@@ -139,7 +139,7 @@ void sha256(const uint8_t* data, size_t data_len, uint32_t** digest) {
     free(padded);
 }
 
-static void sha256_print_digest(uint32_t* digest) {
+void sha256_print_digest(uint32_t* digest) {
     for (size_t i = 0; i < 8; i++) {
         printf("%08x", digest[i]);
     }
@@ -238,9 +238,7 @@ void sha256_monte_carlo(const char* test_file) {
             sha256_print_digest(digest);
         }
         // Convert the local digest to big-endian;
-        for (size_t j = 0; j < 8; j++) {
-            digest[j] = ltb_endian_conv32(digest[j]);
-        }
+        ltb_endian_conv32_array(digest, SHA256_DIGEST_SIZE / 4);
         // For every count > 0, the initial message is the last digest concatenated 3 times;
         if (i % SHA256_MC_POOL_INTERVAL == 0) {
             for (size_t j = 0; j < 3; j++) {

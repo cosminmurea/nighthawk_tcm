@@ -16,7 +16,7 @@
  * @details The caller is responsible for freeing the memory allocated for the digest.
  * @param   data        A pointer to the data.
  * @param   data_len    The length of the data in bytes.
- * @param   padded      A NULL pointer for storing the digest as a word array.
+ * @param   digest      A NULL pointer for storing the digest as a word array.
  * ---------------------------------------------------------------------------------------- **/
 void sha256(const uint8_t* data, size_t data_len, uint32_t** digest);
 
@@ -31,5 +31,7 @@ void sha256_testing(const char* test_file);
  * @param   test_file   The path of the test file.
  * ---------------------------------------------------------------------------------------- **/
 void sha256_monte_carlo(const char* test_file);
+
+void sha256_print_digest(uint32_t* digest);
 
 #endif

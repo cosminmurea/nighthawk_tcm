@@ -24,4 +24,6 @@ void lm_generate_entropy(uint8_t* key, size_t key_len);
  * ---------------------------------------------------------------------------------------- **/
 double shannon_entropy(uint8_t* sample, size_t sample_len);
 
+double lm_lyapunov_exp(double r);
+
 #endif

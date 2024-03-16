@@ -1,6 +1,6 @@
 SOURCE = driver.c
 TARGET = entropy.out
-DEPS = ./entropy.c ../utils/general.c
+DEPS = ./entropy.c ../utils/general.c ../sha256/sha256.c
 CC = gcc
 CFLAGS = -g -Wall
 

@@ -89,7 +89,7 @@ void file_to_byte_array(const char* file_path, uint8_t** buffer, size_t* buffer_
     fclose(file_ptr);
 }
 
-uint32_t ltb_endian_conv32(uint32_t value) {
+static uint32_t ltb_endian_conv32(uint32_t value) {
     uint32_t big_endian_value = 0;
     uint32_t bytes[4] = { 0 };
     bytes[0] = (value & 0x000000FF) << 24;
@@ -98,4 +98,10 @@ uint32_t ltb_endian_conv32(uint32_t value) {
     bytes[3] = (value & 0xFF000000) >> 24;
     big_endian_value = bytes[0] | bytes[1] | bytes[2] | bytes[3];
     return big_endian_value;
+}
+
+void ltb_endian_conv32_array(uint32_t* array, size_t array_len) {
+    for (size_t i = 0; i < array_len; i++) {
+        array[i] = ltb_endian_conv32(array[i]);
+    }
 }
