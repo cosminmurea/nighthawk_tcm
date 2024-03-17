@@ -10,4 +10,24 @@
 
 #include <stdlib.h>
 
+/** ---------------------------------------------------------------------------------------
+ * @brief   Generate random bytes using the logistics map with r = 4.
+ * @param   key         An array to hold the generated key.
+ * @param   key_len     The length of the key to be generated in bytes.
+ * ---------------------------------------------------------------------------------------- **/
+void lm_generate_entropy(uint8_t* key, size_t key_len);
+
+/** ---------------------------------------------------------------------------------------
+ * @brief   Computes the Shannon entropy of a system for a given sample.
+ * @param   sample      The sample to be tested.
+ * @param   sample_len  The length of the sample in bytes.
+ * ---------------------------------------------------------------------------------------- **/
+double shannon_entropy(uint8_t* sample, size_t sample_len);
+
+/** ---------------------------------------------------------------------------------------
+ * @brief   Computes the Lyapunov exponent of the logistics map for a given parameter r.
+ * @param   r           The growth rate parameter ( 0 <= r <= 4 ).
+ * ---------------------------------------------------------------------------------------- **/
+double lm_lyapunov_exp(double r);
+
 #endif

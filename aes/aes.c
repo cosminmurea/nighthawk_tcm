@@ -85,8 +85,8 @@ static uint8_t get_rcon_value(uint8_t iteration) {
 }
 
 static void rotate_word(uint8_t* word) {
-    uint8_t byte;
-    byte = word[0];
+    uint8_t byte = word[0];
+
     for (uint8_t i = 0; i < AES_WORD_SIZE - 1; i++) {
         word[i] = word[i + 1];
     }
@@ -105,28 +105,33 @@ static void key_expansion(uint8_t* key, uint8_t key_size, uint8_t* expanded_key,
     size_t current_size = 0;
     size_t rcon_iteration = 1;
     uint8_t temp_word[AES_WORD_SIZE] = { 0 };
+
     // Copy the key into the first N bytes, where N = 16 | 24 | 32;
     for (uint8_t i = 0; i < key_size; i++) {
         expanded_key[i] = key[i];
     }
     current_size += key_size;
+
     // Expand the key to the required size;
     while (current_size < expanded_key_size) {
+        // Use the initial key words to generate new words;
         for (uint8_t i = 0; i < AES_WORD_SIZE; i++) {
-            // Extract a word from the previous one;
             temp_word[i] = expanded_key[(current_size - AES_WORD_SIZE) + i];
         }
+
         // Every N bytes run the word through the key schedule;
         if (current_size % key_size == 0) {
             key_schedule(temp_word, rcon_iteration);
             rcon_iteration++;
         }
+
         // For N = 32 apply an S-box to the word every 16 bytes (4 words);
         if ((key_size == AES_KEY_SIZE_256) && (current_size % key_size == AES_BLOCK_SIZE)) {
             for (uint8_t i = 0; i < AES_WORD_SIZE; i++) {
                 temp_word[i] = get_s_box_value(temp_word[i]);
             }
         }
+
         // XOR the temporary word with the word N bytes before;
         for (uint8_t i = 0; i < AES_WORD_SIZE; i++) {
             expanded_key[current_size] = expanded_key[current_size - key_size] ^ temp_word[i];
@@ -147,6 +152,7 @@ static void sub_bytes(uint8_t* state, bool decrypt) {
 
 static void shift_rows(uint8_t* state, bool decrypt) {
     uint8_t temp[AES_WORD_SIZE] = { 0 };
+
     for (uint8_t i = 1; i < AES_WORD_SIZE; i++) {
         if (decrypt) {
             // Right shift by 1 - second row, 2 - third row, 3 - fourth row;
@@ -154,6 +160,7 @@ static void shift_rows(uint8_t* state, bool decrypt) {
             // AA BB BC CC => CC AA BB BC
             // DD AA CC EE => CC EE DD AA
             // 01 11 11 00 => 11 11 00 01
+
             // Copy the first 4 - i bytes from the state word to position i of temp;
             memcpy(temp + i, state + i * AES_WORD_SIZE, AES_WORD_SIZE - i);
             // Copy the last i bytes from the state word to the start of temp;
@@ -166,6 +173,7 @@ static void shift_rows(uint8_t* state, bool decrypt) {
             // AA BB BC CC => BB BC CC AA
             // DD AA CC EE => CC EE DD AA
             // 01 11 11 00 => 00 01 11 11
+
             // Copy the last 4 - i bytes from the state word to the start of temp;
             memcpy(temp, (state + i * (AES_WORD_SIZE + 1)), AES_WORD_SIZE - i);
             // Copy the first i bytes from the state word to position 4 - i of temp;
@@ -185,15 +193,23 @@ static void add_round_key(uint8_t* state, uint8_t* round_key) {
 static uint8_t g_mult(uint8_t poly_A, uint8_t poly_B) {
     uint8_t product = 0;
     uint8_t high_bit = 0;
+
     for (uint8_t i = 0; i < 8; i++) {
+        // Add A to the result (mod 2) if the last bit of B is 1;
         if ((poly_B & 1) == 1) {
             product ^= poly_A;
         }
+        // Check if the MSB of A is set;
         high_bit = (poly_A & 0x80);
+        // Shift A to the left by one;
         poly_A <<= 1;
+
+        // If the MSB of A is set, reduce it using the primitive poly;
         if (high_bit == 0x80) {
             poly_A ^= 0x1B;
         }
+
+        // Discard the current LSB of B;
         poly_B >>= 1;
     }
     return product;
@@ -202,6 +218,7 @@ static uint8_t g_mult(uint8_t poly_A, uint8_t poly_B) {
 static void mix_column(uint8_t* column, bool decrypt) {
     uint8_t temp[AES_WORD_SIZE];
     memcpy(temp, column, AES_WORD_SIZE);
+
     if (decrypt) {
         column[0] = g_mult(temp[0], 14) ^ g_mult(temp[3], 9) ^ g_mult(temp[2], 13) ^ g_mult(temp[1], 11);
         column[1] = g_mult(temp[1], 14) ^ g_mult(temp[0], 9) ^ g_mult(temp[3], 13) ^ g_mult(temp[2], 11);
@@ -217,11 +234,14 @@ static void mix_column(uint8_t* column, bool decrypt) {
 
 static void mix_columns(uint8_t* state, bool decrypt) {
     uint8_t column[AES_WORD_SIZE];
+
     for (uint8_t i = 0; i < AES_WORD_SIZE; i++) {
         for (uint8_t j = 0; j < AES_WORD_SIZE; j++) {
             column[j] = state[j * AES_WORD_SIZE + i];
         }
+
         mix_column(column, decrypt);
+
         for (uint8_t j = 0; j < AES_WORD_SIZE; j++) {
             state[j * AES_WORD_SIZE + i] = column[j];
         }
@@ -248,7 +268,9 @@ static void generate_round_key(uint8_t* expanded_key, uint8_t* round_key) {
 
 static void aes_main(uint8_t* state, uint8_t* expanded_key, uint8_t nr_rounds, bool decrypt) {
     uint8_t round_key[AES_BLOCK_SIZE] = { 0 };
+
     if (decrypt) {
+        // Single block decryption flow;
         generate_round_key(expanded_key + AES_BLOCK_SIZE * nr_rounds, round_key);
         add_round_key(state, round_key);
         for (uint8_t i = nr_rounds - 1; i > 0; i--) {
@@ -260,6 +282,7 @@ static void aes_main(uint8_t* state, uint8_t* expanded_key, uint8_t nr_rounds, b
         sub_bytes(state, true);
         add_round_key(state, round_key);
     } else {
+        // Single block encryption flow;
         generate_round_key(expanded_key, round_key);
         add_round_key(state, round_key);
         for (uint8_t i = 1; i < nr_rounds; i++) {
@@ -278,6 +301,7 @@ uint8_t aes(uint8_t* data_block, uint8_t* cipher_block, uint8_t* key, uint8_t ke
     uint8_t nr_rounds = 0;
     uint8_t* expanded_key = NULL;
     uint8_t block[AES_BLOCK_SIZE] = { 0 };
+
     switch (key_size) {
         case AES_KEY_SIZE_128:
             nr_rounds = 10;
@@ -292,8 +316,10 @@ uint8_t aes(uint8_t* data_block, uint8_t* cipher_block, uint8_t* key, uint8_t ke
             return -1;
             break;
     }
+
     expanded_key_size = AES_BLOCK_SIZE * (nr_rounds + 1);
     expanded_key = safe_malloc(expanded_key_size * sizeof *expanded_key);
+
     row_col_map(block, data_block);
     key_expansion(key, key_size, expanded_key, expanded_key_size);
     aes_main(block, expanded_key, nr_rounds, decrypt);
@@ -306,14 +332,17 @@ void aes_cbc_encrypt(const uint8_t* plain, size_t plain_len, uint8_t* iv, uint8_
     uint8_t* padded = NULL;
     uint8_t temp_iv[AES_BLOCK_SIZE];
     memcpy(temp_iv, iv, AES_BLOCK_SIZE);
+
     // Pad the plaintext and store it in the padded buffer;
     pkcs7_pad(plain, plain_len, &padded, cipher_len);
     *cipher = safe_malloc(*cipher_len * sizeof **cipher);
+
     // For each block of the plaintext XOR it with the IV and then encrypt;
     for (size_t i = 0; i < *cipher_len; i += AES_BLOCK_SIZE) {
         for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
             padded[i + j] ^= temp_iv[j];
         }
+
         aes(padded + i, *cipher + i, key, key_size, false);
         // The next IV is the current encrypted block;
         memcpy(temp_iv, *cipher + i, AES_BLOCK_SIZE);
@@ -326,16 +355,18 @@ void aes_cbc_decrypt(const uint8_t* cipher, size_t cipher_len, uint8_t* iv, uint
     memcpy(padded, cipher, cipher_len);
     uint8_t temp_iv[AES_BLOCK_SIZE], temp_iv2[AES_BLOCK_SIZE];
     memcpy(temp_iv, iv, AES_BLOCK_SIZE);
+
     // For each block of the ciphertext decrypt it and the XOR it with the IV;
     for (size_t i = 0; i < cipher_len; i += AES_BLOCK_SIZE) {
         // Save the current cipher block to use as the next IV;
         memcpy(temp_iv2, padded + i, AES_BLOCK_SIZE);
+
         aes(padded + i, padded + i, key, key_size, true);
+
         for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
             padded[i + j] ^= temp_iv[j];
         }
         memcpy(temp_iv, temp_iv2, AES_BLOCK_SIZE);
-
     }
     pkcs7_unpad(padded, cipher_len, plain, plain_len);
     free(padded);
@@ -346,16 +377,18 @@ static void aes_cbc_decrypt_no_pad(const uint8_t* cipher, size_t cipher_len, uin
     memcpy(padded, cipher, cipher_len);
     uint8_t temp_iv[AES_BLOCK_SIZE], temp_iv2[AES_BLOCK_SIZE];
     memcpy(temp_iv, iv, AES_BLOCK_SIZE);
+
     // For each block of the ciphertext decrypt it and the XOR it with the IV;
     for (size_t i = 0; i < cipher_len; i += AES_BLOCK_SIZE) {
         // Save the current cipher block to use as the next IV;
         memcpy(temp_iv2, padded + i, AES_BLOCK_SIZE);
+
         aes(padded + i, padded + i, key, key_size, true);
+
         for (uint8_t j = 0; j < AES_BLOCK_SIZE; j++) {
             padded[i + j] ^= temp_iv[j];
         }
         memcpy(temp_iv, temp_iv2, AES_BLOCK_SIZE);
-
     }
     // pkcs7_unpad(cipher, cipher_len, plain, plain_len);
     *plain_len = cipher_len;
@@ -365,7 +398,6 @@ static void aes_cbc_decrypt_no_pad(const uint8_t* cipher, size_t cipher_len, uin
 }
 
 void aes_cbc_test(const char* test_file, uint8_t key_size) {
-    // Open the test file;
     FILE* file_ptr = safe_fopen(test_file, "rb");
     char buffer[AES_MAX_TEST_MSG_LENGTH];
     uint8_t* key = NULL;
@@ -384,6 +416,7 @@ void aes_cbc_test(const char* test_file, uint8_t key_size) {
         printf("KEY = \t\t");
         print_byte_array(key, key_size);
         memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+
         // Read the IV and convert it to a byte array;
         fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
         sscanf(buffer, "IV = %s", buffer);
@@ -391,8 +424,10 @@ void aes_cbc_test(const char* test_file, uint8_t key_size) {
         printf("IV = \t\t");
         print_byte_array(iv, AES_BLOCK_SIZE);
         memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+
         if (count > 10) {
             plain_len = (count - 10) * AES_BLOCK_SIZE;
+
             // Read the ciphertext and convert it to a byte array;
             fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
             sscanf(buffer, "CIPHERTEXT = %s", buffer);
@@ -400,6 +435,7 @@ void aes_cbc_test(const char* test_file, uint8_t key_size) {
             printf("CIPHER = \t");
             print_byte_array(nist_cipher, plain_len);
             memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+
             // Read the plaintext and convert it to a byte array;
             fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
             sscanf(buffer, "PLAINTEXT = %s", buffer);
@@ -407,12 +443,14 @@ void aes_cbc_test(const char* test_file, uint8_t key_size) {
             printf("PLAIN = \t");
             print_byte_array(plain, plain_len);
             memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+
             // Apply decryption;
             aes_cbc_decrypt_no_pad(nist_cipher, plain_len, iv, key, key_size, &cipher, &cipher_len);
             printf("LOCAL = \t");
             print_byte_array(cipher, cipher_len);
         } else {
             plain_len = count * AES_BLOCK_SIZE;
+
             // Read the plaintext and convert it to a byte array;
             fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
             sscanf(buffer, "PLAINTEXT = %s", buffer);
@@ -420,6 +458,7 @@ void aes_cbc_test(const char* test_file, uint8_t key_size) {
             printf("PLAIN = \t");
             print_byte_array(plain, plain_len);
             memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+
             // Read the ciphertext and convert it to a byte array;
             fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
             sscanf(buffer, "CIPHERTEXT = %s", buffer);
@@ -427,11 +466,13 @@ void aes_cbc_test(const char* test_file, uint8_t key_size) {
             printf("CIPHER = \t");
             print_byte_array(nist_cipher, plain_len);
             memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);
+
             // Apply decryption;
             aes_cbc_encrypt(plain, plain_len, iv, key, key_size, &cipher, &cipher_len);
             printf("LOCAL = \t");
             print_byte_array(cipher, cipher_len - 16);
         }
+
         // Every fifth line is empty;
         fgets(buffer, AES_MAX_TEST_MSG_LENGTH, file_ptr);
         memset(buffer, 0, AES_MAX_TEST_MSG_LENGTH);

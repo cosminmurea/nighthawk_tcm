@@ -10,8 +10,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define PKCS7_BLOCK_SIZE 16
-
 /** ---------------------------------------------------------------------------------------
  * @brief   Pads data using the PKCS7 padding scheme.
  * @details The caller is responsible for freeing the memory allocated for the padded data.

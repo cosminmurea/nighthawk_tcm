@@ -30,8 +30,9 @@ uint8_t* hex_to_byte_array(const char* hex_string, size_t hex_len);
  * @brief   Convert an array of byte into a uint64_t value.
  * @param   byte_array    A pointer to the array of bytes to convert.
  * @param   size          The size of the byte array.
+ * @returns A 64 bit value where each byte is an array element.
  * ----------------------------------------------------------------------------------- **/
-uint64_t byte_array_to_uint64(const uint8_t* byte_array, size_t size);
+uint64_t byte_array_to_uint64(const uint8_t* byte_array);
 
 /** ----------------------------------------------------------------------------------
  * @brief   Wraps the malloc() function and handles memory allocation errors.
@@ -55,5 +56,13 @@ FILE* safe_fopen(const char* file_path, const char* mode);
  * @param   buffer_len  The length of the buffer in bytes.
  * ----------------------------------------------------------------------------------- **/
 void file_to_byte_array(const char* file_path, uint8_t** buffer, size_t* buffer_len);
+
+/** ----------------------------------------------------------------------------------
+ * @brief   Converts a uint32_t value from little-endian to big-endian.
+ * @details This function converts the array in-place. The data will be overwritten.
+ * @param   array       A pointer to the array to be converted.
+ * @param   array_len   The length in uint32_t elements of the array.
+ * ----------------------------------------------------------------------------------- **/
+void le_to_be_v32(uint32_t* array, size_t array_len);
 
 #endif
