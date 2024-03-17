@@ -108,6 +108,9 @@ double lm_lyapunov_exp(double r) {
     return lyapunov_exp;
 }
 
+static double tent_map() {
+}
+
 static void byte_array_prob(uint8_t* byte_array, size_t array_len, double* prob) {
     int freq[array_len];
 
