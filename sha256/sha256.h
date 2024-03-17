@@ -32,6 +32,10 @@ void sha256_testing(const char* test_file);
  * ---------------------------------------------------------------------------------------- **/
 void sha256_monte_carlo(const char* test_file);
 
+/** ---------------------------------------------------------------------------------------
+ * @brief   Print a SHA2-256 digest in hex format.
+ * @param   digest      A pointer to the digest (eight 32-bit words).
+ * ---------------------------------------------------------------------------------------- **/
 void sha256_print_digest(uint32_t* digest);
 
 #endif

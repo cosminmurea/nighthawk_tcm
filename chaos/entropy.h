@@ -24,6 +24,10 @@ void lm_generate_entropy(uint8_t* key, size_t key_len);
  * ---------------------------------------------------------------------------------------- **/
 double shannon_entropy(uint8_t* sample, size_t sample_len);
 
+/** ---------------------------------------------------------------------------------------
+ * @brief   Computes the Lyapunov exponent of the logistics map for a given parameter r.
+ * @param   r           The growth rate parameter ( 0 <= r <= 4 ).
+ * ---------------------------------------------------------------------------------------- **/
 double lm_lyapunov_exp(double r);
 
 #endif

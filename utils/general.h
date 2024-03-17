@@ -63,6 +63,6 @@ void file_to_byte_array(const char* file_path, uint8_t** buffer, size_t* buffer_
  * @param   array       A pointer to the array to be converted.
  * @param   array_len   The length in uint32_t elements of the array.
  * ----------------------------------------------------------------------------------- **/
-void ltb_endian_conv32_array(uint32_t* array, size_t array_len);
+void le_to_be_v32(uint32_t* array, size_t array_len);
 
 #endif
