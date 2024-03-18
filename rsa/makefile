@@ -1,16 +1,17 @@
-SOURCE = driver.c
-TARGET = rsa.out
-DEPS = ./rsa.c ../utils/general.c
 CC = gcc
-CFLAGS = -g -Wall
 
-run: $(TARGET)
-	./$(TARGET)
+all: rsa
+	./rsa.out
 
-$(TARGET): $(SOURCE)
-	$(CC) $(CFLAGS) $(SOURCE) $(DEPS) -o $(TARGET)
+rsa:
+	$(CC) -g -Wall -c -I /opt/local/include driver.c
+	${CC} -g -Wall -c -I /opt/local/include rsa.c
+	${CC} -g -Wall -c ../sha256/sha256.c
+	${CC} -g -Wall -c ../utils/general.c
+	$(CC) -o rsa.out driver.o rsa.o sha256.o general.o -L /opt/local/lib -lgmp
+	rm ./*.o
 
 .PHONY: clean
 
 clean:
-	rm $(TARGET)
+	rm rsa.out

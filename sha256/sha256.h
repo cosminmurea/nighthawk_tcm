@@ -11,6 +11,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define SHA256_BLOCK_SIZE 64
+#define SHA256_DIGEST_SIZE 32
+
 /** ---------------------------------------------------------------------------------------
  * @brief   Hashes an array of bytes using SHA2-256.
  * @details The caller is responsible for freeing the memory allocated for the digest.
@@ -37,5 +40,7 @@ void sha256_monte_carlo(const char* test_file);
  * @param   digest      A pointer to the digest (eight 32-bit words).
  * ---------------------------------------------------------------------------------------- **/
 void sha256_print_digest(uint32_t* digest);
+
+void sha256_to_byte_array(const uint32_t* digest, uint8_t** byte_array);
 
 #endif

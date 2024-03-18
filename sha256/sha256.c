@@ -2,8 +2,6 @@
 #include "sha256.h"
 #include "../utils/general.h"
 
-#define SHA256_BLOCK_SIZE 64
-#define SHA256_DIGEST_SIZE 32
 #define SHA256_MAX_TEST_MSG_LENGTH 13000
 #define SHA256_MC_ITERATIONS 100001
 #define SHA256_MC_MAX_TEST_MSG_LENGTH 100
@@ -147,6 +145,7 @@ void sha256(const uint8_t* data, size_t data_len, uint32_t** digest) {
     for (size_t i = 0; i < 8; i++) {
         (*digest)[i] = hash[i];
     }
+    // Convert the digest to a byte array before returning it;
     free(padded);
 }
 
@@ -155,6 +154,12 @@ void sha256_print_digest(uint32_t* digest) {
         printf("%08x", digest[i]);
     }
     printf("\n\n");
+}
+
+void sha256_to_byte_array(const uint32_t* digest, uint8_t** byte_array) {
+    *byte_array = safe_malloc(SHA256_DIGEST_SIZE * sizeof **byte_array);
+    le_to_be_v32(digest, SHA256_DIGEST_SIZE / 4);
+    memcpy(byte_array, digest, SHA256_DIGEST_SIZE);
 }
 
 void sha256_testing(const char* test_file) {
