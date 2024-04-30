@@ -123,7 +123,7 @@ static void sha256_compression(const uint8_t* block, uint32_t* hash) {
     hash[7] += h;
 }
 
-void sha256(const uint8_t* data, size_t data_len, uint32_t** digest) {
+void sha256(const uint8_t* data, size_t data_len, uint8_t** digest) {
     uint8_t* padded = NULL;
     size_t padded_len = 0;
 
@@ -133,7 +133,7 @@ void sha256(const uint8_t* data, size_t data_len, uint32_t** digest) {
     };
 
     // Store the final value on the heap;
-    *digest = safe_malloc(8 * sizeof **digest);
+    *digest = safe_malloc(SHA256_DIGEST_SIZE * sizeof **digest);
     // Pad the message to a multiple of 512 bits;
     sha256_padding(data, data_len, &padded, &padded_len);
 
@@ -142,24 +142,11 @@ void sha256(const uint8_t* data, size_t data_len, uint32_t** digest) {
         sha256_compression((padded + i * SHA256_BLOCK_SIZE), hash);
     }
 
-    for (size_t i = 0; i < 8; i++) {
-        (*digest)[i] = hash[i];
-    }
     // Convert the digest to a byte array before returning it;
+    le_to_be_v32(hash, SHA256_DIGEST_SIZE / 4);
+    memcpy(*digest, hash, SHA256_DIGEST_SIZE);
+
     free(padded);
-}
-
-void sha256_print_digest(uint32_t* digest) {
-    for (size_t i = 0; i < 8; i++) {
-        printf("%08x", digest[i]);
-    }
-    printf("\n\n");
-}
-
-void sha256_to_byte_array(const uint32_t* digest, uint8_t** byte_array) {
-    *byte_array = safe_malloc(SHA256_DIGEST_SIZE * sizeof **byte_array);
-    le_to_be_v32(digest, SHA256_DIGEST_SIZE / 4);
-    memcpy(byte_array, digest, SHA256_DIGEST_SIZE);
 }
 
 void sha256_testing(const char* test_file) {
@@ -167,7 +154,7 @@ void sha256_testing(const char* test_file) {
     char buffer[SHA256_MAX_TEST_MSG_LENGTH] = {0};
     uint8_t* hex_message = NULL;
     size_t message_length = 0;
-    uint32_t* digest = NULL;
+    uint8_t* digest = NULL;
 
     // Skip the first 7 lines of the file;
     for (size_t i = 0; i < 7; i++) {
@@ -202,7 +189,7 @@ void sha256_testing(const char* test_file) {
         // Compute and print the local digest;
         printf("Local Digest : \t");
         sha256(hex_message, message_length / 8, &digest);
-        sha256_print_digest(digest);
+        print_byte_array(digest, SHA256_DIGEST_SIZE);
     }
     fclose(file_ptr);
     free(hex_message);
@@ -214,7 +201,7 @@ void sha256_monte_carlo(const char* test_file) {
     char buffer[SHA256_MC_MAX_TEST_MSG_LENGTH] = { 0 };
     uint8_t temp[SHA256_MC_MAX_TEST_MSG_LENGTH] = { 0 };
     uint8_t* seed = NULL;
-    uint32_t* digest = NULL;
+    uint8_t* digest = NULL;
     size_t count = 0;
 
     // Skip the first 7 lines of the file;
@@ -267,11 +254,8 @@ void sha256_monte_carlo(const char* test_file) {
             // Print the local digest;
 
             printf("Local Digest : \t");
-            sha256_print_digest(digest);
+            print_byte_array(digest, SHA256_DIGEST_SIZE);
         }
-
-        // Convert the local digest to big-endian;
-        le_to_be_v32(digest, SHA256_DIGEST_SIZE / 4);
 
         // Every 1000 iterations, the new initial message is the last digest concatenated 3 times;
         if (i % SHA256_MC_POOL_INTERVAL == 0) {

@@ -1,17 +1,20 @@
 CC = gcc
+CFLAGS = -g -Wall
+OBJECTS = driver.o rsa.o sha256.o general.o
+TARGET = rsa.out
 
 all: rsa
-	./rsa.out
+	./$(TARGET)
 
 rsa:
-	$(CC) -g -Wall -c -I /opt/local/include driver.c
-	${CC} -g -Wall -c -I /opt/local/include rsa.c
-	${CC} -g -Wall -c ../sha256/sha256.c
-	${CC} -g -Wall -c ../utils/general.c
-	$(CC) -o rsa.out driver.o rsa.o sha256.o general.o -L /opt/local/lib -lgmp
-	rm ./*.o
+	$(CC) $(CFLAGS) -c -I /opt/local/include driver.c
+	${CC} $(CFLAGS) -c -I /opt/local/include rsa.c
+	${CC} $(CFLAGS) -c ../sha256/sha256.c
+	${CC} $(CFLAGS) -c ../utils/general.c
+	$(CC) -o $(TARGET) $(OBJECTS) -L /opt/local/lib -lgmp
 
 .PHONY: clean
 
 clean:
-	rm rsa.out
+	rm $(OBJECTS)
+	rm $(TARGET)

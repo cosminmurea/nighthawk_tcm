@@ -19,9 +19,9 @@
  * @details The caller is responsible for freeing the memory allocated for the digest.
  * @param   data        A pointer to the data.
  * @param   data_len    The length of the data in bytes.
- * @param   digest      A NULL pointer for storing the digest as a word array.
+ * @param   digest      A NULL pointer for storing the digest as a byte array.
  * ---------------------------------------------------------------------------------------- **/
-void sha256(const uint8_t* data, size_t data_len, uint32_t** digest);
+void sha256(const uint8_t* data, size_t data_len, uint8_t** digest);
 
 /** ---------------------------------------------------------------------------------------
  * @brief   Test the SHA2-256 implementation using the NIST short and long messages.
@@ -34,13 +34,5 @@ void sha256_testing(const char* test_file);
  * @param   test_file   The path of the test file.
  * ---------------------------------------------------------------------------------------- **/
 void sha256_monte_carlo(const char* test_file);
-
-/** ---------------------------------------------------------------------------------------
- * @brief   Print a SHA2-256 digest in hex format.
- * @param   digest      A pointer to the digest (eight 32-bit words).
- * ---------------------------------------------------------------------------------------- **/
-void sha256_print_digest(uint32_t* digest);
-
-void sha256_to_byte_array(const uint32_t* digest, uint8_t** byte_array);
 
 #endif

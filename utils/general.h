@@ -58,7 +58,7 @@ FILE* safe_fopen(const char* file_path, const char* mode);
 void file_to_byte_array(const char* file_path, uint8_t** buffer, size_t* buffer_len);
 
 /** ----------------------------------------------------------------------------------
- * @brief   Converts a uint32_t value from little-endian to big-endian.
+ * @brief   Converts a uint32_t array from little-endian to big-endian.
  * @details This function converts the array in-place. The data will be overwritten.
  * @param   array       A pointer to the array to be converted.
  * @param   array_len   The length in uint32_t elements of the array.

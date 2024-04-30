@@ -16,7 +16,7 @@
 static void urandom_seed(uint8_t* seed) {
     // Open /dev/urandom and save the file descriptor;
     int32_t urandom_fd = open("/dev/urandom", O_RDONLY);
-    uint32_t* digest = NULL;
+    uint8_t* digest = NULL;
 
     if (urandom_fd == -1) {
         fprintf(stderr, "Could not open /dev/urandom. Proceeding to crash. Cleaning up...");
@@ -32,10 +32,8 @@ static void urandom_seed(uint8_t* seed) {
 
     // Hash the seed to avoid exposing the entropy pool;
     sha256(seed, INTERNAL_SEED_LEN, &digest);
-    sha256_print_digest(digest);
-    le_to_be_v32(digest, 8);
-    memcpy(seed, digest + 3, 8);
-
+    print_byte_array(digest, SHA256_DIGEST_SIZE);
+    memcpy(seed, digest + 12, INTERNAL_SEED_LEN);
     print_byte_array(seed, 8);
     free(digest);
 }
@@ -106,9 +104,6 @@ double lm_lyapunov_exp(double r) {
 
     lyapunov_exp = sum / (double) WARMUP_ITER;
     return lyapunov_exp;
-}
-
-static double tent_map() {
 }
 
 static void byte_array_prob(uint8_t* byte_array, size_t array_len, double* prob) {
