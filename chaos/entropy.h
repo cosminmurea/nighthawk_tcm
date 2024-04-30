@@ -15,7 +15,7 @@
  * @param   key         An array to hold the generated key.
  * @param   key_len     The length of the key to be generated in bytes.
  * ---------------------------------------------------------------------------------------- **/
-void lm_generate_entropy(uint8_t* key, size_t key_len);
+void generate_entropy(uint8_t* key, size_t key_len);
 
 /** ---------------------------------------------------------------------------------------
  * @brief   Computes the Shannon entropy of a system for a given sample.
@@ -29,5 +29,17 @@ double shannon_entropy(uint8_t* sample, size_t sample_len);
  * @param   r           The growth rate parameter ( 0 <= r <= 4 ).
  * ---------------------------------------------------------------------------------------- **/
 double lm_lyapunov_exp(double r);
+
+/** ---------------------------------------------------------------------------------------
+ * @brief   Computes the Lyapunov exponent of the tent map for a given parameter r.
+ * @param   r           0 <= r <= 2
+ * ---------------------------------------------------------------------------------------- **/
+double tent_lyapunov_exp(double r);
+
+/** ---------------------------------------------------------------------------------------
+ * @brief   Computes the Lyapunov exponent of the sine map for a given parameter r.
+ * @param   r           0 <= r <= 1
+ * ---------------------------------------------------------------------------------------- **/
+double sine_lyapunov_exp(double r);
 
 #endif
