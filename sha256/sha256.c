@@ -1,4 +1,5 @@
 #include <string.h>
+
 #include "sha256.h"
 #include "../utils/general.h"
 

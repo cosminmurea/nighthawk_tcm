@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+
 #include "rsa.h"
 #include "../sha256/sha256.h"
 #include "../utils/general.h"
@@ -8,24 +9,20 @@
 static void rsa_generate_decryption_key(const mpz_t p, const mpz_t q, const mpz_t enc_key, mpz_t n, mpz_t dec_key) {
     // Multiply two big primes (p & q) to obtain the modulo (n);
     mpz_mul(n, p, q);
-
     mpz_t temp, p_temp, q_temp, lambda, gcd, product;
     // Initialize mpz_t variables to 0;
     mpz_inits(temp, p_temp, q_temp, lambda, gcd, product, NULL);
-
     // Compute the Carmichael totient - lambda(n);
     // Since n = pq => lambda(n) = lcm(lambda(p), lambda(q));
     // If x is prime => lambda(x) = phi(x) = x - 1 => lambda(n) = lcm(p - 1, q - 1);
     mpz_sub_ui(p_temp, p, 1);
     mpz_sub_ui(q_temp, q, 1);
     mpz_lcm(lambda, p_temp, q_temp);
-
     // The encryption key is co-prime to lambda and 3 < enc < lambda(n);
     assert(mpz_cmp_ui(enc_key, 3) > 0);
     assert(mpz_cmp(lambda, enc_key));
     mpz_gcd(gcd, enc_key, lambda);
     assert(mpz_cmp_ui(gcd, 1) == 0);
-
     // The decryption key is the modular inverse of the encryption key modulo lambda(n);
     // That means (e * d) % lambda(n) = 1,  d - rop, e - op1, lambda(n) - op2;
     mpz_invert(dec_key, enc_key, lambda);
@@ -33,7 +30,6 @@ static void rsa_generate_decryption_key(const mpz_t p, const mpz_t q, const mpz_
     mpz_mul(product, dec_key, enc_key);
     mpz_mod(temp, product, lambda);
     assert(mpz_cmp_ui(temp, 1) == 0);
-
     mpz_clears(temp, p_temp, q_temp, lambda, gcd, product, NULL);
 }
 
@@ -56,15 +52,12 @@ void rsa(const uint8_t* data_string, const size_t data_len, const char* p_string
     mpz_init_set_str(p, p_string, 10);
     mpz_init_set_str(q, q_string, 10);
     mpz_init_set_str(enc_key, enc_key_string, 10);
-
     // Generate the decryption key;
     rsa_generate_decryption_key(p, q, enc_key, n, dec_key);
-
     // Encrypt the data;
     rsa_encrypt(data, enc_key, n, cipher);
     // Decrypt the data;
     rsa_decrypt(cipher, dec_key, n, plain);
-
     printf("Public = (e: %s, n: %s)\n", mpz_get_str(NULL, 0, enc_key), mpz_get_str(NULL, 0, n));
     printf("Private = (d: %s, n: %s)\n", mpz_get_str(NULL, 0, dec_key), mpz_get_str(NULL, 0, n));
     printf("Original message: %s\n", mpz_get_str(NULL, 0, data));

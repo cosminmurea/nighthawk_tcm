@@ -42,4 +42,6 @@ double tent_lyapunov_exp(double r);
  * ---------------------------------------------------------------------------------------- **/
 double sine_lyapunov_exp(double r);
 
+void lorenz_generator();
+
 #endif
